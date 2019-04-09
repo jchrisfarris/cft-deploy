@@ -16,6 +16,7 @@ Notes.md
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
+*Preserved.yaml
 
 # Test events also contain sensitive datad
 *test-events/*
