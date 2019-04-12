@@ -13,6 +13,7 @@ import re
 import logging
 logger = logging.getLogger('cft-deploy.manifest')
 
+
 class CFManifest(object):
     """Class to represent a CloudFormation Template"""
 
@@ -84,6 +85,7 @@ class CFManifest(object):
         """Based on the manifest's Sourced Parameters, find all the parameters and populate them."""
 
         param_dict = {}  # we add all the parameters to this dictionary to de-dupe them
+        stack_map = {}
 
         # Start with the regular parameters from the Manifest
         for k, v in self.document['Parameters'].items():
@@ -92,11 +94,47 @@ class CFManifest(object):
             else:
                 param_dict[k] = {'ParameterKey': k, 'ParameterValue': v, 'UsePreviousValue': False}
 
-        # if 'DependsOnStacks' in self.document:
-        #     # the old way
+        if 'DependsOnStacks' in self.document:
+            # the old way
+            raise NotImplementedError
 
-        # if 'DependentStacks' in self.document:
-        #     # The new way
+        if 'DependentStacks' in self.document:
+            # The new way
+            for source_key, source_stack_name in self.document['DependentStacks'].items():
+                my_stack = CFStack(source_stack_name, self.region, self.session)
+                if my_stack is None:
+                    logger.error(f"Creating stack object for {source_stack_name} returned None")
+                    raise CFStackDoesNotExistError(source_stack_name)
+                stack_map[source_key] = my_stack
+
+
+        if 'SourcedParameters' in self.document:
+            for k, v in self.document['SourcedParameters'].items():
+                (stack_map_key, section, resource_id) = v.split('.')
+                if stack_map_key not in stack_map:
+                    logger.error(f"DependentStack {stack_map_key} was required by {k} but was not found or referenced.")
+                    continue
+                source_stack = stack_map[stack_map_key]
+                if section == "Parameters":
+                    params = source_stack.get_parameters()
+                    if resource_id in params:
+                        param_dict[k] = {'ParameterKey': k, 'ParameterValue': params[resource_id], 'UsePreviousValue': False}
+                    else:
+                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Parameters")
+                elif section == "Outputs":
+                    outputs = source_stack.get_outputs()
+                    if resource_id in outputs:
+                        param_dict[k] = {'ParameterKey': k, 'ParameterValue': outputs[resource_id], 'UsePreviousValue': False}
+                    else:
+                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Outputs")
+                elif section == "Resources":
+                    resources = source_stack.get_resources()
+                    if resource_id in resources:
+                        param_dict[k] = {'ParameterKey': k, 'ParameterValue': resources[resource_id], 'UsePreviousValue': False}
+                    else:
+                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Resources")
+                else:
+                    logger.error(f"Invaluid SourcedParameters section type: {section}")
 
         # Finally, any parameters passed in as an override take precedence
         if override is not None:
