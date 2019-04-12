@@ -72,7 +72,7 @@ def cft_deploy():
         my_stack = my_manifest.create_stack()
 
     if my_stack is None:
-        print("Failed to Create of Find stack. Aborting....")
+        print("Failed to Create or Find stack. Aborting....")
         exit(1)
 
     # Now display the events
@@ -189,6 +189,10 @@ def cft_validate_manifest():
             print(json.dumps(status, sort_keys=True, indent=2))
         else:
             print(f"Manifest {args.manifest} is valid")
+            print(f"Stack Name: {my_manifest.stack_name} in region {my_manifest.region}")
+            print("Resolved Parameters:")
+            for p in my_manifest.params:
+                print(f"\t{p['ParameterKey']}: {p['ParameterValue']}")
         exit(0)
 
 
