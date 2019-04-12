@@ -30,6 +30,7 @@ class CFStack(object):
     def __init__(self, stack_name, region, session=None):
         """Constructs a CFTemplate from the template_body (json or yaml)."""
         self.stack_name = stack_name
+        self.region = region
         if session is None:
             self.session = boto3.session.Session()
         else:
@@ -61,7 +62,26 @@ class CFStack(object):
 
     def update(self, manifest):
         """ Updates a Stack based on this manifest."""
-        raise NotImplementedError
+        logger.info(f"Updating Stack {self.stack_name} in {self.region}")
+        try:
+            manifest.fetch_parameters()
+            payload = manifest.build_cft_payload()
+
+            # These is only valid for Create.
+            del payload['TimeoutInMinutes']
+            del payload['OnFailure']
+            del payload['EnableTerminationProtection']
+
+            stack_response = self.cf_client.update_stack(**payload)
+            if 'StackId' not in stack_response:
+                logger.error("Unable to update stack")
+                return(None)
+        except CFStackDoesNotExistError as e:
+            logger.error(f"Could not find stack {self.stack_name} in {self.region}: {e}")
+            return(None)
+        except ClientError as e:
+            logger.error(f"Error attempting to update {self.stack_name} in {self.region}: {e}")
+            return(None)
 
     def get_parameters(self):
         """ Return a dict of each parameter to this stack."""
@@ -117,7 +137,7 @@ class CFStack(object):
     def get_stack_events(self, last_event_id=None):
         """ Return all stack events since last_event_id."""
         events = []
-        response = self.cf_client.describe_stack_events(StackName=self.stack_name)
+        response = self.cf_client.describe_stack_events(StackName=self.StackId)
         while 'NextToken' in response:
             for event in response['StackEvents']:
                 if last_event_id is not None and event['EventId'] == last_event_id:
@@ -125,7 +145,7 @@ class CFStack(object):
                     events.reverse()
                     return(events)
                 events.append(event)
-            response = self.cf_client.describe_stack_events(StackName=self.stack_name, NextToken=response['NextToken'])
+            response = self.cf_client.describe_stack_events(StackName=self.StackId, NextToken=response['NextToken'])
         for event in response['StackEvents']:
             if last_event_id is not None and event['EventId'] == last_event_id:
                 # Abort now and return what we've got.
