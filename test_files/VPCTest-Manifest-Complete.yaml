@@ -63,9 +63,6 @@ Parameters:
 DependentStacks:
 #    - MyOtherStack: stack_name_for_other_stack
 
-# Legacy way
-DependsOnStacks:
-#    - stack_name_for_other_stack
 
 ###########
 # Parameters that come from other deployed stacks.
