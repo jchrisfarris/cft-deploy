@@ -1,19 +1,27 @@
 from setuptools import setup, find_packages
 import os, sys
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
   name='cftdeploy',
   version=os.popen('{} cftdeploy/_version.py'.format(sys.executable)).read().rstrip(),
   author='Chris Farris',
   author_email='chris@room17.com',
   license="Apache License 2.0",
-  description='The AWS SDK for Python',
+  license_file="LICENSE",
+  description='Tools and modules for managing CloudFormation Templates & Stacks',
+  long_description=long_description,
+  long_description_content_type="text/markdown",
   packages=find_packages(),
   py_modules=['cftdeploy'],
   url='http://github.com/jchrisfarris/cft-deploy',
-  # install_requires=[
-  #   'boto3',
-  # ],
+  python_requires='>=3.6',
+  include_package_data=True,
+  install_requires=[
+    'boto3 >= 1.9.1',
+  ],
   entry_points={
     'console_scripts': [
       "cft-deploy = cftdeploy:cft_deploy",
