@@ -30,14 +30,14 @@ class CFTemplate(object):
 
     @classmethod
     def read(cls, filename, session=None):
-        """Read the template from filename and then initalize."""
+        """Read the template from filename and then initialize."""
         f = open(filename, "r")
         template_body = f.read()
         return(CFTemplate(template_body, filename=filename, session=session))
 
     @classmethod
     def download(cls, bucket, object_key, session=None):
-        """Downloads the template from S3 and then initalize."""
+        """Downloads the template from S3 and then initialize."""
         try:
             s3 = boto3.client('s3')  # FIXME will fail for cross-account roles
             response = s3.get_object(
@@ -150,7 +150,7 @@ class CFTemplate(object):
 
     @classmethod
     def parse_s3_url(cls, s3url):
-        '''Parse an s3url (s3://bucket/object_key) and retun the bucket and object_key'''
+        '''Parse an s3url (s3://bucket/object_key) and return the bucket and object_key'''
         r = re.match(r"s3://(.*?)/(.*?)$", s3url)
         if r:
             bucket = r.group(1)

@@ -28,9 +28,9 @@ Parameters:
     Type: String
     Default: 192.168.10.0/17
 
-  pInstanceKeyName:
-    Description: Instance Key Name
-    Type: String
+  # pInstanceKeyName:
+  #   Description: Instance Key Name
+  #   Type: String
 
   pOwnerEmail:
     Description: Email Address for the owner of this instance

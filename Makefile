@@ -77,7 +77,7 @@ test-deploy:
 	cft-deploy -m $(MANIFEST)
 
 test-manifest2-validate:
-	sed s/CHANGEME/$(FULL_STACK_NAME2)/g test_files/$(STACK_NAME2)-Manifest2-Complete.yaml > $(MANIFEST2)
+	sed s/CHANGEME/$(FULL_STACK_NAME2)/g test_files/$(STACK_NAME2)-Manifest-Complete.yaml > $(MANIFEST2)
 	cft-validate-manifest -m $(MANIFEST2)
 
 test-deploy2:
