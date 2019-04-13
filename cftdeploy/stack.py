@@ -4,7 +4,6 @@ from botocore.exceptions import ClientError
 import os
 import sys
 import json
-from time import sleep
 import datetime
 import dateutil.parser
 
@@ -60,11 +59,11 @@ class CFStack(object):
         """ Deletes this stack."""
         self.cf_client.delete_stack(StackName=self.stack_name)
 
-    def update(self, manifest):
+    def update(self, manifest, override=None):
         """ Updates a Stack based on this manifest."""
         logger.info(f"Updating Stack {self.stack_name} in {self.region}")
         try:
-            manifest.fetch_parameters()
+            manifest.fetch_parameters(override=override)
             payload = manifest.build_cft_payload()
 
             # These is only valid for Create.

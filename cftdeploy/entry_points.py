@@ -57,19 +57,29 @@ def cft_deploy():
     parser.add_argument("--force", help="Force the stack update even if the stack is in a non-normal state", action='store_true')
     parser.add_argument("--update-stack-policy", help="Override the existing stack policy for this update", action='store_true')
     parser.add_argument("--interactive", help="Create a change set and display it before executing the change", action='store_true')
+    parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     args = do_args(parser)
     logger.info(f"Deploying {args.manifest}")
 
+    # Flag the non-implemented stuff
+    if args.interactive or args.update_stack_policy or args.force:
+        raise NotImplementedError
+
     my_manifest = CFManifest(args.manifest)
     # TODO: Process override stuff
+    if args.template_url:
+        my_manifest.override_option("S3Template", args.template_url)
 
+    override = process_override_params(args)
+
+    # Now see if the stack exists, if it doesn't then create, otherwise update
     try:
         my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'])
-        my_stack.update(my_manifest)
+        my_stack.update(my_manifest, override=override)
     except CFStackDoesNotExistError as e:
         logger.info(e)
         # Then we're creating the stack
-        my_stack = my_manifest.create_stack()
+        my_stack = my_manifest.create_stack(override=override)
 
     if my_stack is None:
         print("Failed to Create or Find stack. Aborting....")
@@ -83,6 +93,7 @@ def cft_deploy():
         events = my_stack.get_stack_events(last_event_id=last_event)
         last_event = print_events(events, last_event)
 
+    # Finish up with an status message and the appropriate exit code
     status = my_stack.get_status()
     if status in StackGoodStatus:
         print(f"{my_manifest.stack_name} successfully deployed: \033[92m{status}\033[0m")
@@ -119,7 +130,12 @@ def print_events(events, last_event):
             status = f"\033[92m{e['ResourceStatus']}\033[0m"
         else:
             status = e['ResourceStatus']
-        print(f"{e['Timestamp'].astimezone().strftime('%Y-%m-%d %H:%M:%S')} {e['LogicalResourceId']} ({e['ResourceType']}): {status}")
+
+        if 'ResourceStatusReason' in e and e['ResourceStatusReason'] != "":
+            reason = f": {e['ResourceStatusReason']}"
+        else:
+            reason = ""
+        print(f"{e['Timestamp'].astimezone().strftime('%Y-%m-%d %H:%M:%S')} {e['LogicalResourceId']} ({e['ResourceType']}): {status} {reason}")
     return(e['EventId'])
 
 
@@ -170,17 +186,19 @@ def cft_validate_manifest():
     parser = argparse.ArgumentParser(description="Validate a Cloudformation Template File and its associated Manifest")
     parser.add_argument("--price", help="Return a link for a simple calculator pricing worksheet", action='store_true')
     parser.add_argument("-m", "--manifest", help="Manifest file to deploy", required=True)
+    parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     args = do_args(parser)
     logger.debug(f"Validating {args.manifest}")
 
     my_manifest = CFManifest(args.manifest)
+    override = process_override_params(args)
 
     if args.price:
         url = my_manifest.estimate_cost()
         print(f"Cost Estimate URL: {url}")
         exit(0)
 
-    status = my_manifest.validate()
+    status = my_manifest.validate(override=override)
     if status is False:
         print("Error Validating Manifest")
         exit(1)
@@ -330,3 +348,22 @@ def do_args(parser):
     logging.getLogger('boto3').setLevel(logging.WARNING)
 
     return(args)
+
+
+def process_override_params(args):
+    params = {}
+    if not args.overrideparameters:
+        return(None)
+
+    for p in args.overrideparameters:
+        k, v = p.split("=")
+        params[k] = v
+
+    return(params)
+
+
+
+
+
+
+

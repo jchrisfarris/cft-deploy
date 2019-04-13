@@ -44,16 +44,15 @@ class CFManifest(object):
         else:
             self.template = None
 
-    def override_options(self, options):
+    def override_option(self, key, value):
         """If options are passed in on he command line, these will override the manifest file's value"""
-        for key, value in params.items():
-            self.document[key] = value
+        self.document[key] = value
 
-    def create_stack(self):
+    def create_stack(self, override=None):
         """ Creates a Stack based on this manifest."""
         logger.info(f"Creating Stack {self.stack_name} in {self.region}")
         try:
-            self.fetch_parameters()
+            self.fetch_parameters(override=override)
             payload = self.build_cft_payload()
             stack_response = self.cf_client.create_stack(**payload)
             if 'StackId' not in stack_response:
@@ -69,7 +68,7 @@ class CFManifest(object):
             logger.error(f"Error attempting to create {self.stack_name} in {self.region}: {e}")
             return(None)
 
-    def validate(self):
+    def validate(self, override=None):
         """Validate the template's syntax by sending to CloudFormation Service. Returns json from AWS."""
 
         # These are mutually exclusive
@@ -77,7 +76,7 @@ class CFManifest(object):
             logger.critical("Manifest contains both 'LocalTemplate' and 'S3Template'")
             return(False)
 
-        self.fetch_parameters()
+        self.fetch_parameters(override=override)
         payload = self.build_cft_payload()
         return(payload)
 
