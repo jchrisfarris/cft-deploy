@@ -39,7 +39,7 @@ export TEMPLATE_S3URL ?= s3://$(BUCKET)/$(TEMPLATE_KEY)
 
 
 clean:
-	rm -rf __pycache__ *.zip *.dist-info *.egg-info
+	rm -rf __pycache__ *.zip *.dist-info *.egg-info cftdeploy/__pycache__ test_files/*Manifest.yaml
 
 test:
 	cd cftdeploy && $(MAKE) test
