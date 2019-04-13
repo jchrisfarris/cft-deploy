@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test Instance Stuff Template'
+
+Parameters:
+
+  pVpcId:
+    Description: ID of the VPC
+    Type: AWS::EC2::VPC::Id
+
+  pVpcCidr:
+    Description: CIDR of the VPC
+    Type: String
+
+  pFirstPrivateSubnetId:
+    Description: Subnet in First AZ
+    Type: AWS::EC2::Subnet::Id
+
+  pSecondPrivateSubnetId:
+    Description: Subnet in Second AZ
+    Type: AWS::EC2::Subnet::Id
+
+  pTagApplication:
+    Description: project these instances are part of
+    Type: String
+
+  pOpenNetMask:
+    Description: Open netmask
+    Type: String
+    Default: 192.168.10.0/17
+
+  # pInstanceKeyName:
+  #   Description: Instance Key Name
+  #   Type: String
+
+  pOwnerEmail:
+    Description: Email Address for the owner of this instance
+    Type: String
+
+  pInstanceAMI:
+    Description: AMI ID to use for the Instance
+    Type: String
+
+  pInstanceInstanceType:
+    Description: Instance type for the Instance
+    Type: String
+
+Resources:
+
+  # this policy allows the ASG member to participate in logging and SSM
+  InstanceIamInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref 'InstanceIamInstanceRole']
+      Path: /
+  InstanceIamInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ec2.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Policies:
+        - PolicyName: "InstanceRole"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Action:
+              - ec2:Describe*
+              Resource: "*"
+              Effect: Allow
+            - Action:
+              - ssm:DescribeAssociation
+              - ssm:GetDeployablePatchSnapshotForInstance
+              - ssm:GetDocument
+              - ssm:GetParameters
+              - ssm:ListAssociations
+              - ssm:ListInstanceAssociations
+              - ssm:PutInventory
+              - ssm:UpdateAssociationStatus
+              - ssm:UpdateInstanceAssociationStatus
+              - ssm:UpdateInstanceInformation
+              Resource: "*"
+              Effect: Allow
+            - Action:
+              - ec2messages:AcknowledgeMessage
+              - ec2messages:DeleteMessage
+              - ec2messages:FailMessage
+              - ec2messages:GetEndpoint
+              - ec2messages:GetMessages
+              - ec2messages:SendReply
+              Resource: "*"
+              Effect: Allow
+            - Action:
+              - cloudwatch:PutMetricData
+              Resource: "*"
+              Effect: Allow
+            - Action:
+              - ec2:DescribeInstanceStatus
+              Resource: "*"
+              Effect: Allow
+            - Action:
+              - ds:CreateComputer
+              - ds:DescribeDirectories
+              Resource: "*"
+              Effect: Allow
+            - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+              Resource: "*"
+              Effect: Allow
+            # - Action:
+            #   - s3:PutObject
+            #   - s3:GetObject
+            #   - s3:AbortMultipartUpload
+            #   - s3:ListMultipartUploadParts
+            #   - s3:ListBucketMultipartUploads
+            #   Resource: "*"
+            #   Effect: Allow
+            - Action:
+              - s3:ListBucket
+              Resource: arn:aws:s3:::amazon-ssm-packages-*
+              Effect: Allow
+
+  InstanceASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      HealthCheckType: EC2
+      DesiredCapacity: 2
+      MaxSize: 3
+      MinSize: 2
+      Tags:
+        - Key: Name
+          Value: !Sub minion.${pTagApplication}
+          PropagateAtLaunch: 'true'
+      LaunchConfigurationName: !Ref InstanceLaunchConfig
+      VPCZoneIdentifier:
+        - !Ref pFirstPrivateSubnetId
+        - !Ref pSecondPrivateSubnetId
+    DependsOn:
+      - InstanceLaunchConfig
+
+  InstanceLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref pInstanceAMI
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+      IamInstanceProfile: !Ref InstanceIamInstanceProfile
+      InstanceType: !Ref pInstanceInstanceType
+      # KeyName: !Ref pInstanceKeyName
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          EC2_INSTANCE_ID="$(wget -q -O - 'http://169.254.169.254/latest/meta-data/instance-id')"
+          hostname minion-$EC2_INSTANCE_ID && \
+          yum update -y
+
+
+# Application instances
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref 'pVpcId'
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        CidrIp: !Ref 'pOpenNetMask'
+        ToPort: '22'
+        FromPort: '22'
+      GroupDescription: Instance Host Security Group
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-Instance-SG"
+
+Outputs:
+  StackName:
+    Value: !Ref 'AWS::StackName'
+
