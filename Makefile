@@ -101,3 +101,17 @@ test-stack2: test-manifest2-validate test-deploy2
 
 test-everything: test-stack1 test-stack2 test-delete test-clean
 
+
+## PyPi Build & Release
+build-deps:
+	$(PYTHON) -m pip install --user --upgrade setuptools wheel twine
+
+build:
+	$(PYTHON) setup.py sdist bdist_wheel
+
+dist-clean:
+	rm -rf dist build
+
+dist-upload:
+	$(PYTHON) -m twine upload dist/*
+
