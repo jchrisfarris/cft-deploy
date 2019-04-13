@@ -99,5 +99,5 @@ test-stack1: test test-validate test-upload test-s3-validate test-manifest test-
 
 test-stack2: test-manifest2-validate test-deploy2
 
-test-everything: test-stack1 test-stack2 test-delete
+test-everything: test-stack1 test-stack2 test-delete test-clean
 
