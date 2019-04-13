@@ -36,6 +36,7 @@ class CFStack(object):
             self.session = session
 
         self.cf_client = self.session.client('cloudformation', region_name=region)
+        self.region = region
 
         if self.get() is None:
             return(None)
