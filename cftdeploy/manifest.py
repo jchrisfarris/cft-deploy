@@ -1,7 +1,6 @@
 from .template import *
 from .stack import *
 
-
 import boto3
 from botocore.exceptions import ClientError
 import os
@@ -93,11 +92,12 @@ class CFManifest(object):
             else:
                 param_dict[k] = {'ParameterKey': k, 'ParameterValue': v, 'UsePreviousValue': False}
 
+        # This is a legacy hold-over from deploy-stack.rb. If encountered, I'd rather be forced to fix the manifest than
+        # maintain code to support both methods, when the Placeholder: full-stack-name makes the SourcedParams section better
         if 'DependsOnStacks' in self.document:
-            # the old way
             raise NotImplementedError
 
-        if 'DependentStacks' in self.document:
+        if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
             # The new way
             for source_key, source_stack_name in self.document['DependentStacks'].items():
                 my_stack = CFStack(source_stack_name, self.region, self.session)
@@ -106,7 +106,7 @@ class CFManifest(object):
                     raise CFStackDoesNotExistError(source_stack_name)
                 stack_map[source_key] = my_stack
 
-        if 'SourcedParameters' in self.document:
+        if 'SourcedParameters' in self.document and self.document['SourcedParameters'] is not None:
             for k, v in self.document['SourcedParameters'].items():
                 (stack_map_key, section, resource_id) = v.split('.')
                 if stack_map_key not in stack_map:
