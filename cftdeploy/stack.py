@@ -43,7 +43,10 @@ class CFStack(object):
     def get(self):
         """Fetch the latest set of data for this stack from AWS and update properties of the instance."""
         try:
-            response = self.cf_client.describe_stacks(StackName=self.stack_name)
+            if hasattr(self, "StackId"):
+                response = self.cf_client.describe_stacks(StackName=self.StackId)
+            else:
+                response = self.cf_client.describe_stacks(StackName=self.stack_name)
             if 'Stacks' not in response or len(response['Stacks']) == 0:
                 logger.error(f"Unable to find a stack named {self.stack_name}")
                 return(None)
@@ -57,7 +60,7 @@ class CFStack(object):
 
     def delete(self):
         """ Deletes this stack."""
-        self.cf_client.delete_stack(StackName=self.stack_name)
+        self.cf_client.delete_stack(StackName=self.StackId)
 
     def update(self, manifest, override=None):
         """ Updates a Stack based on this manifest."""
@@ -108,7 +111,7 @@ class CFStack(object):
 
     def get_resources(self):
         """ Return all the PhysicalResourceIds for each LogicalId in the template"""
-        response = self.cf_client.list_stack_resources(StackName=self.stack_name)
+        response = self.cf_client.list_stack_resources(StackName=self.StackId)
         self.resources = response['StackResourceSummaries']
         output = {}
         for o in self.resources:
@@ -168,7 +171,7 @@ class CFStack(object):
 
     def get_template(self):
         """ Return as a CFTemplate the current template for this stack."""
-        response = self.cf_client.get_template(StackName=self.stack_name)
+        response = self.cf_client.get_template(StackName=self.StackId)
         template_body = response['TemplateBody']
         return(CFTemplate(template_body, self.session))
 
