@@ -106,7 +106,6 @@ class CFManifest(object):
                     raise CFStackDoesNotExistError(source_stack_name)
                 stack_map[source_key] = my_stack
 
-
         if 'SourcedParameters' in self.document:
             for k, v in self.document['SourcedParameters'].items():
                 (stack_map_key, section, resource_id) = v.split('.')
