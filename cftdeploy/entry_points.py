@@ -309,10 +309,10 @@ def cft_delete():
 
     status = my_stack.get_status()
     if status in ["DELETE_COMPLETE"]:
-        print(f"{my_manifest.stack_name} successfully deleted: \033[92m{status}\033[0m")
+        print(f"{args.stack_name} successfully deleted: \033[92m{status}\033[0m")
         exit(0)
     else:
-        print(f"{my_manifest.stack_name} failed to delete: \033[91m{status}\033[0m")
+        print(f"{args.stack_name} failed to delete: \033[91m{status}\033[0m")
         exit(1)
 
 
