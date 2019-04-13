@@ -32,11 +32,7 @@ Parameters:{parameter_yaml}
 # These stacks are needed by the SourcedParameters section
 ###########
 DependentStacks:
-#    - MyOtherStack: stack_name_for_other_stack
-
-# Legacy way
-DependsOnStacks:
-#    - MyOtherStack: stack_name_for_other_stack
+#    MyOtherStack: stack_name_for_other_stack
 
 ###########
 # Parameters that come from other deployed stacks.
