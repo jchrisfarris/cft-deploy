@@ -110,6 +110,34 @@ The exception *CFTemplateTooLargeError* is defined where the template must be up
 
 #### CFManifest
 
+    class CFManifest(builtins.object)
+     |  CFManifest(manifest_filename, session=None)
+     |
+     |  Class to represent a CloudFormation Template
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, manifest_filename, session=None)
+     |      Constructs a CFManifest from the manifest file.
+     |
+     |  build_cft_payload(self)
+     |      Generate the CFT Payload
+     |
+     |  create_stack(self, override=None)
+     |      Creates a Stack based on this manifest.
+     |
+     |  estimate_cost(self)
+     |      Return a url to the simple monthly cost estimator for this template / parameter set.
+     |
+     |  fetch_parameters(self, override=None)
+     |      Based on the manifest's Sourced Parameters, find all the parameters and populate them.
+     |
+     |  override_option(self, key, value)
+     |      If options are passed in on he command line, these will override the manifest file's value
+     |
+     |  validate(self, override=None)
+     |      Validate the template's syntax by sending to CloudFormation Service. Returns json from AWS.
+
 #### CFStack
 
     class CFStack(builtins.object)
