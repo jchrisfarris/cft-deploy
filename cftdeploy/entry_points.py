@@ -75,6 +75,13 @@ def cft_deploy():
     # Now see if the stack exists, if it doesn't then create, otherwise update
     try:
         my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'])
+
+        # Only if the stack is in a normal status (or --force is specified) do we update
+        status = my_stack.get_status()
+        if status not in StackGoodStatus and args.force is not True:
+            print(f"Stack {my_stack.stack_name} is in status {status} and --force was not specified. Aborting....")
+            exit(1)
+
         my_stack.update(my_manifest, override=override)
     except CFStackDoesNotExistError as e:
         logger.info(e)
