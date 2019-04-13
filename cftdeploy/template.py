@@ -15,7 +15,7 @@ logger = logging.getLogger('cft-deploy.template')
 class CFTemplate(object):
     """Class to represent a CloudFormation Template"""
 
-    def __init__(self, template_body, filename=None, s3url=None, session=None):
+    def __init__(self, template_body, region, filename=None, s3url=None, session=None):
         """Constructs a CFTemplate from the template_body (json or yaml)."""
         self.template_body = template_body
         self.filename = filename
@@ -26,17 +26,18 @@ class CFTemplate(object):
         else:
             self.session = session
 
-        self.cf_client = self.session.client('cloudformation')
+        self.cf_client = self.session.client('cloudformation', region_name=region)
+        self.region = region
 
     @classmethod
-    def read(cls, filename, session=None):
+    def read(cls, filename, region, session=None):
         """Read the template from filename and then initialize."""
         f = open(filename, "r")
         template_body = f.read()
-        return(CFTemplate(template_body, filename=filename, session=session))
+        return(CFTemplate(template_body, region, filename=filename, session=session))
 
     @classmethod
-    def download(cls, bucket, object_key, session=None):
+    def download(cls, bucket, object_key, region, session=None):
         """Downloads the template from S3 and then initialize."""
         try:
             s3 = boto3.client('s3')  # FIXME will fail for cross-account roles
@@ -45,7 +46,7 @@ class CFTemplate(object):
                 Key=object_key
             )
             template_body = response['Body'].read()
-            return(CFTemplate(template_body, s3url=f"s3://{bucket}/{object_key}", session=session))
+            return(CFTemplate(template_body, region, s3url=f"s3://{bucket}/{object_key}", session=session))
         except ClientError as e:
             logger.error("ClientError downloading template: {}".format(e))
             raise

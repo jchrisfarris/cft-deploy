@@ -23,7 +23,6 @@ def cft_get_events():
     """Entrypoint to list events for a stack."""
     parser = argparse.ArgumentParser(description="List Stack Events")
     parser.add_argument("--stack-name", help="Stackname to search", required=True)
-    parser.add_argument("--region", help="AWS Region", default=os.environ['AWS_DEFAULT_REGION'])
     args = do_args(parser)
 
     try:
@@ -229,7 +228,7 @@ def cft_upload():
     parser.add_argument("-o", "--object-key", help="object key to upload as", required=True)
     args = do_args(parser)
     logger.info(f"Uploading {args.template} to s3://{args.bucket}/{args.object_key}")
-    my_template = CFTemplate.read(args.template)
+    my_template = CFTemplate.read(args.template, args.region)
     try:
         status = my_template.upload(args.bucket, args.object_key)
         print(f"Template {args.template} uploaded to {status}")
@@ -255,13 +254,13 @@ def cft_generate_manifest():
     if args.template:
         logger.info(f"Generating Manifest file {args.manifest} from {args.template}")
         source = args.template
-        my_template = CFTemplate.read(args.template)
+        my_template = CFTemplate.read(args.template, args.region)
     elif args.s3_url:
         logger.info(f"Generating Manifest file {args.manifest} from {args.s3_url}")
         source = args.s3_url
         (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
         logger.debug(f"Fetching {object_key} from {bucket}")
-        my_template = CFTemplate.download(bucket, object_key)
+        my_template = CFTemplate.download(bucket, object_key, args.region)
 
     subsitutions = {}
     if args.stack_name:
@@ -285,7 +284,6 @@ def cft_delete():
     """Delete --stack-name."""
     parser = argparse.ArgumentParser(description="Delete a stack")
     parser.add_argument("--stack-name", help="Stackname to Delete", required=True)
-    parser.add_argument("--region", help="AWS Region", default=os.environ['AWS_DEFAULT_REGION'])
     parser.add_argument("--no-status", help="Don't display the progress of the delete", action='store_true')
     args = do_args(parser)
     print(f"Deleting {args.stack_name}")
@@ -328,6 +326,7 @@ def do_args(parser):
     parser.add_argument("--json", help="Return Data in json format", action='store_true')
     parser.add_argument("--env", help="Return data in bash env format", action='store_true')
     parser.add_argument("--version", help="print cft-deploy version", action='store_true')
+    parser.add_argument("--region", help="AWS Region", default=os.environ['AWS_DEFAULT_REGION'])
     args = parser.parse_args()
 
     if args.version:
