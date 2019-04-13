@@ -74,10 +74,10 @@ test-manifest-validate:
 	cft-validate-manifest -m $(MANIFEST)
 
 test-deploy:
-	cft-deploy -m $(MANIFEST)
+	cft-deploy -m $(MANIFEST) --template-url $(TEMPLATE_S3URL)
 
 test-manifest2-validate:
-	sed s/CHANGEME/$(FULL_STACK_NAME2)/g test_files/$(STACK_NAME2)-Manifest-Complete.yaml > $(MANIFEST2)
+	sed s/CHANGEME/$(FULL_STACK_NAME2)/g test_files/$(STACK_NAME2)-Manifest-Complete.yaml | sed s/FULL_STACK_NAME/$(FULL_STACK_NAME)/g > $(MANIFEST2)
 	cft-validate-manifest -m $(MANIFEST2)
 
 test-deploy2:
@@ -89,8 +89,15 @@ test-update:
 	rm $(MANIFEST)-Update
 
 test-delete:
+	cft-delete --stack-name $(FULL_STACK_NAME2)
 	cft-delete --stack-name $(FULL_STACK_NAME)
+
+test-clean:
+	rm -f test_files/*Manifest.yaml test_files/*Manifest.yaml-Preserved.yaml
 
 test-stack1: test test-validate test-upload test-s3-validate test-manifest test-manifest-validate test-deploy
 
 test-stack2: test-manifest2-validate test-deploy2
+
+test-everything: test-stack1 test-stack2 test-delete
+
