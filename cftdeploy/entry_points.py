@@ -327,7 +327,7 @@ def do_args(parser):
     parser.add_argument("-s", "--silent", help="Be Silent. Print error info only", action='store_true')
     parser.add_argument("--json", help="Return Data in json format", action='store_true')
     parser.add_argument("--env", help="Return data in bash env format", action='store_true')
-    parser.add_argument("--version", help="print cft-tool version", action='store_true')
+    parser.add_argument("--version", help="print cft-deploy version", action='store_true')
     args = parser.parse_args()
 
     if args.version:
