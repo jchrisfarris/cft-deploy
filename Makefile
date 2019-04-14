@@ -55,14 +55,14 @@ deps:
 ## Testing Targets
 
 test-validate:
-	cft-validate -t $(STACK_TEMPLATE) $(verbose)
-	cft-validate -t $(STACK_TEMPLATE2) $(verbose)
+	cft-validate -t $(STACK_TEMPLATE) $(verbose) --region $(TEST_REGION)
+	cft-validate -t $(STACK_TEMPLATE2) $(verbose) --region $(TEST_REGION)
 
 test-upload:
 	cft-upload -t $(STACK_TEMPLATE) -b $(BUCKET) -o $(TEMPLATE_KEY) $(verbose)
 
 test-s3-validate:
-	cft-validate --s3-url $(TEMPLATE_S3URL) $(verbose)
+	cft-validate --s3-url $(TEMPLATE_S3URL) $(verbose) --region $(TEST_REGION)
 
 # Generate a manifest, then set is aside to use a completed one
 test-manifest:
@@ -89,8 +89,8 @@ test-update:
 	rm $(MANIFEST)-Update
 
 test-delete:
-	cft-delete --stack-name $(FULL_STACK_NAME2)
-	cft-delete --stack-name $(FULL_STACK_NAME)
+	cft-delete --stack-name $(FULL_STACK_NAME2) --region $(TEST_REGION)
+	cft-delete --stack-name $(FULL_STACK_NAME) --region $(TEST_REGION)
 
 test-clean:
 	rm -f test_files/*Manifest.yaml test_files/*Manifest.yaml-Preserved.yaml

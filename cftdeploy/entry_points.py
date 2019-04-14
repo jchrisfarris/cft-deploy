@@ -166,12 +166,12 @@ def cft_validate():
 
     if args.template:
         logger.debug(f"Validating {args.template}")
-        my_template = CFTemplate.read(args.template)
+        my_template = CFTemplate.read(args.template, args.region)
     elif args.s3_url:
         logger.debug(f"Validating {args.s3_url}")
         (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
         logger.debug(f"Fetching {object_key} from {bucket}")
-        my_template = CFTemplate.download(bucket, object_key)
+        my_template = CFTemplate.download(bucket, object_key, args.region)
 
     try:
         status = my_template.validate()
@@ -243,7 +243,6 @@ def cft_generate_manifest():
     parser = argparse.ArgumentParser(description="Generate Manifest file")
     parser.add_argument("-m", "--manifest", help="Manifest file to output", required=True)
     parser.add_argument("--stack-name", help="Set the stackname to this in the Manifest File")
-    parser.add_argument("--region", help="Set the region in the Manifest File")
     parser.add_argument("--termination-protection", help="Set termination protection to true in the Manifest File", action='store_true')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-t", "--template", help="CFT Filename to validate")

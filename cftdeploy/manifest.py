@@ -39,7 +39,7 @@ class CFManifest(object):
         self.cf_client = self.session.client('cloudformation', region_name=self.region)
 
         if 'LocalTemplate' in self.document:
-            self.template = CFTemplate.read(self.document['LocalTemplate'])
+            self.template = CFTemplate.read(self.document['LocalTemplate'], self.region)
         else:
             self.template = None
 
