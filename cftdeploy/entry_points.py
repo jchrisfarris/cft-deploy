@@ -61,7 +61,7 @@ def cft_deploy():
     logger.info(f"Deploying {args.manifest}")
 
     # Flag the non-implemented stuff
-    if args.interactive or args.update_stack_policy or args.force:
+    if args.interactive or args.update_stack_policy:
         raise NotImplementedError
 
     my_manifest = CFManifest(args.manifest)
@@ -81,15 +81,17 @@ def cft_deploy():
             print(f"Stack {my_stack.stack_name} is in status {status} and --force was not specified. Aborting....")
             exit(1)
 
-        my_stack.update(my_manifest, override=override)
+        rc = my_stack.update(my_manifest, override=override)
+        if rc is None:
+            print("Failed to Find or Update stack. Aborting....")
+            exit(1)
     except CFStackDoesNotExistError as e:
         logger.info(e)
         # Then we're creating the stack
         my_stack = my_manifest.create_stack(override=override)
-
-    if my_stack is None:
-        print("Failed to Create or Find stack. Aborting....")
-        exit(1)
+        if my_stack is None:
+            print("Failed to Create stack. Aborting....")
+            exit(1)
 
     # Now display the events
     events = my_stack.get_stack_events()
@@ -191,6 +193,7 @@ def cft_validate_manifest():
     """Entrypoint to Validate a Cloudformation Template File."""
     parser = argparse.ArgumentParser(description="Validate a Cloudformation Template File and its associated Manifest")
     parser.add_argument("--price", help="Return a link for a simple calculator pricing worksheet", action='store_true')
+    parser.add_argument("--template-url", help="Override the manifest with this Template URL")
     parser.add_argument("-m", "--manifest", help="Manifest file to deploy", required=True)
     parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     args = do_args(parser)
@@ -198,6 +201,9 @@ def cft_validate_manifest():
 
     my_manifest = CFManifest(args.manifest)
     override = process_override_params(args)
+
+    if args.template_url:
+        my_manifest.override_option("S3Template", args.template_url)
 
     if args.price:
         url = my_manifest.estimate_cost()
@@ -348,6 +354,7 @@ def do_args(parser):
     # add ch to logger
     logger.addHandler(ch)
 
+    logger.setLevel(logging.DEBUG)
     # Quiet Boto3
     logging.getLogger('botocore').setLevel(logging.WARNING)
     logging.getLogger('boto3').setLevel(logging.WARNING)

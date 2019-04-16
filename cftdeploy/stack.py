@@ -70,15 +70,20 @@ class CFStack(object):
             manifest.fetch_parameters(override=override)
             payload = manifest.build_cft_payload()
 
-            # These is only valid for Create.
-            del payload['TimeoutInMinutes']
-            del payload['OnFailure']
-            del payload['EnableTerminationProtection']
+            # These are only valid for Create, but may or may not be in the manifest.
+            if 'TimeoutInMinutes' in payload:
+                del payload['TimeoutInMinutes']
+            if 'OnFailure' in payload:
+                del payload['OnFailure']
+            if 'EnableTerminationProtection' in payload:
+                del payload['EnableTerminationProtection']
 
+            print(json.dumps(payload, indent=2))
             stack_response = self.cf_client.update_stack(**payload)
             if 'StackId' not in stack_response:
                 logger.error("Unable to update stack")
                 return(None)
+            return(stack_response['StackId'])
         except CFStackDoesNotExistError as e:
             logger.error(f"Could not find stack {self.stack_name} in {self.region}: {e}")
             return(None)
@@ -141,14 +146,16 @@ class CFStack(object):
         """ Return all stack events since last_event_id."""
         events = []
         response = self.cf_client.describe_stack_events(StackName=self.StackId)
-        while 'NextToken' in response:
-            for event in response['StackEvents']:
-                if last_event_id is not None and event['EventId'] == last_event_id:
-                    # Abort now and return what we've got.
-                    events.reverse()
-                    return(events)
-                events.append(event)
-            response = self.cf_client.describe_stack_events(StackName=self.StackId, NextToken=response['NextToken'])
+        # Enabling the following would return all of the stack events since the begining of time.
+        # If we're just doing a tail-f with a short interval, then we don't need to paginate the results.
+        # while 'NextToken' in response:
+        #     for event in response['StackEvents']:
+        #         if last_event_id is not None and event['EventId'] == last_event_id:
+        #             # Abort now and return what we've got.
+        #             events.reverse()
+        #             return(events)
+        #         events.append(event)
+        #     response = self.cf_client.describe_stack_events(StackName=self.StackId, NextToken=response['NextToken'])
         for event in response['StackEvents']:
             if last_event_id is not None and event['EventId'] == last_event_id:
                 # Abort now and return what we've got.

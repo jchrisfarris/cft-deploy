@@ -90,7 +90,13 @@ class CFManifest(object):
             if v is None:
                 logger.warning(f"Parameter {k} has a null value in the manifest file and will be ignored!")
             else:
-                param_dict[k] = {'ParameterKey': k, 'ParameterValue': v, 'UsePreviousValue': False}
+                # Python doesn't convert a boolean to a lowercase string which is expected by the CF Service when the template
+                # contains boolean values.
+                if isinstance(v, bool):
+                    strv = str(v).lower()
+                else:
+                    strv = str(v)
+                param_dict[k] = {'ParameterKey': k, 'ParameterValue': strv, 'UsePreviousValue': False}
 
         # This is a legacy hold-over from deploy-stack.rb. If encountered, I'd rather be forced to fix the manifest than
         # maintain code to support both methods, when the Placeholder: full-stack-name makes the SourcedParams section better
@@ -156,14 +162,19 @@ class CFManifest(object):
         payload = {
             'StackName':        self.document['StackName'],
             'Parameters':       self.params,
-            # 'DisableRollback':  self.document['DisableRollback'],
-            'TimeoutInMinutes': int(re.sub("\D", "", self.document['TimeOut'])),
             'Capabilities':     ['CAPABILITY_NAMED_IAM'],
-            'OnFailure':        self.document['OnFailure'],
-            'StackPolicyBody':  json.dumps(stack_policy_body),
             'Tags':             [],
-            'EnableTerminationProtection': self.document['TerminationProtection']
         }
+
+        # These elements may or may not be in the manifest and should be handled accordingly.
+        if 'TerminationProtection' in self.document:
+            payload['EnableTerminationProtection'] = self.document['TerminationProtection']
+        if 'TimeOut' in self.document:
+            payload['TimeoutInMinutes'] = int(re.sub("\D", "", self.document['TimeOut']))
+        if 'OnFailure' in self.document:
+            payload['OnFailure'] = self.document['OnFailure']
+        if 'StackPolicyBody' in self.document:
+            payload['StackPolicyBody'] = json.dumps(stack_policy_body)
 
         # Now make the decision on what to tell CF about the template
         if 'LocalTemplate' in self.document:
