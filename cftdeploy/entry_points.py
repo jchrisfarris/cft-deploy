@@ -9,6 +9,7 @@ import yaml
 import argparse
 import time
 from datetime import tzinfo
+from difflib import unified_diff
 
 from ._version import __version__, __version_info__
 from .manifest import *
@@ -210,20 +211,24 @@ def cft_validate_manifest():
         print(f"Cost Estimate URL: {url}")
         exit(0)
 
-    status = my_manifest.validate(override=override)
-    if status is False:
-        print("Error Validating Manifest")
-        exit(1)
-    else:
-        if args.json:
-            print(json.dumps(status, sort_keys=True, indent=2))
+    try:
+        status = my_manifest.validate(override=override)
+        if status is False:
+            print("Error Validating Manifest")
+            exit(1)
         else:
-            print(f"Manifest {args.manifest} is valid")
-            print(f"Stack Name: {my_manifest.stack_name} in region {my_manifest.region}")
-            print("Resolved Parameters:")
-            for p in my_manifest.params:
-                print(f"\t{p['ParameterKey']}: {p['ParameterValue']}")
-        exit(0)
+            if args.json:
+                print(json.dumps(status, sort_keys=True, indent=2))
+            else:
+                print(f"Manifest {args.manifest} is valid")
+                print(f"Stack Name: {my_manifest.stack_name} in region {my_manifest.region}")
+                print("Resolved Parameters:")
+                for p in my_manifest.params:
+                    print(f"\t{p['ParameterKey']}: {p['ParameterValue']}")
+            exit(0)
+    except CFStackDoesNotExistError as e:
+        print(f"Stack {e.stackname} doesn't exist. Unable to validate manifest.")
+        exit(1)
 
 
 def cft_upload():
@@ -317,6 +322,40 @@ def cft_delete():
     else:
         print(f"{args.stack_name} failed to delete: \033[91m{status}\033[0m")
         exit(1)
+
+def cft_diff():
+    """Delete --stack-name."""
+    parser = argparse.ArgumentParser(description="Compare new Template to existing template from a stack")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-t", "--template", help="CFT Filename to validate")
+    group.add_argument("--s3-url", help="CFT S3 URL to validate")
+    parser.add_argument("--stack-name", help="Stackname to search", required=True)
+    args = do_args(parser)
+
+    if args.template:
+        template_1 = CFTemplate.read(args.template, args.region)
+    elif args.s3_url:
+        (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
+        template_1 = CFTemplate.download(bucket, object_key, args.region)
+
+    try:
+        my_stack = CFStack(args.stack_name, args.region)
+    except CFStackDoesNotExistError as e:
+        print("Failed to Find stack. Aborting....")
+        exit(1)
+
+    print(f"comparing stack: {my_stack.stack_name} and template {template_1}")
+    template_2 = my_stack.get_template()
+
+    s1 = template_1.template_body.split('\n')
+    s2 = template_2.template_body.split('\n')
+
+    for line in unified_diff(s1, s2, fromfile=my_stack.stack_name, tofile=str(template_1)):
+        sys.stdout.write(line + "\n")
+
+    exit(1)
+
+
 
 
 def version():
