@@ -173,7 +173,7 @@ class CFManifest(object):
             payload['TimeoutInMinutes'] = int(re.sub("\D", "", self.document['TimeOut']))
         if 'OnFailure' in self.document:
             payload['OnFailure'] = self.document['OnFailure']
-        if 'StackPolicyBody' in self.document:
+        if 'StackPolicy' in self.document:
             payload['StackPolicyBody'] = json.dumps(stack_policy_body)
 
         # Now make the decision on what to tell CF about the template
