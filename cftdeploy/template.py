@@ -29,6 +29,14 @@ class CFTemplate(object):
         self.cf_client = self.session.client('cloudformation', region_name=region)
         self.region = region
 
+    def __str__(self):
+        if self.s3url is not None:
+            return(self.s3url)
+        elif self.filename is not None:
+            return(self.filename)
+        else:
+            return("A Template has no name")
+
     @classmethod
     def read(cls, filename, region, session=None):
         """Read the template from filename and then initialize."""

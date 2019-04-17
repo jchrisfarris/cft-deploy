@@ -10,6 +10,8 @@ import dateutil.parser
 import logging
 logger = logging.getLogger('cft-deploy.stack')
 
+from .template import *
+
 
 ResourceGoodStatus      = ["CREATE_COMPLETE", "UPDATE_COMPLETE"]
 ResourceBadStatus       = ["CREATE_FAILED", "DELETE_IN_PROGRESS", "DELETE_FAILED", "DELETE_COMPLETE", "DELETE_COMPLETE",
@@ -181,7 +183,7 @@ class CFStack(object):
         """ Return as a CFTemplate the current template for this stack."""
         response = self.cf_client.get_template(StackName=self.StackId)
         template_body = response['TemplateBody']
-        return(CFTemplate(template_body, self.session))
+        return(CFTemplate(template_body, self.region, session=self.session))
 
 
 class CFStackDoesNotExistError(Exception):
