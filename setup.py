@@ -32,6 +32,7 @@ setup(
       "cft-delete  = cftdeploy:cft_delete",
       "cft-generate-manifest = cftdeploy:cft_generate_manifest",
       "cft-get-events = cftdeploy:cft_get_events",
+      "cft-diff = cftdeploy:cft_diff",
     ]
   }
 )
