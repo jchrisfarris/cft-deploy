@@ -45,7 +45,7 @@ class CFTemplate(object):
                 Bucket=bucket,
                 Key=object_key
             )
-            template_body = response['Body'].read()
+            template_body = response['Body'].read().decode("utf-8")
             return(CFTemplate(template_body, region, s3url=f"s3://{bucket}/{object_key}", session=session))
         except ClientError as e:
             logger.error("ClientError downloading template: {}".format(e))
