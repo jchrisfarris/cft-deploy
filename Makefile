@@ -113,7 +113,7 @@ dist-clean:
 	rm -rf dist build
 
 # Twine usage: https://github.com/pypa/twine
-dist-upload: build
+dist-upload: dist-clean build
 	$(PYTHON) -m twine check dist/*
 	$(PYTHON) -m twine upload dist/* --verbose
 
