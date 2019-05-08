@@ -164,6 +164,33 @@ def cft_get_resource():
     exit(0)
 
 
+def cft_get_output():
+    """Get a resource's physical ID. Can be specified multiple times."""
+    parser = argparse.ArgumentParser(description="Get Resource IDs by Logical Id")
+    parser.add_argument("--stack-name", help="Stackname to search", required=True)
+    parser.add_argument("--output-key", help="Stack Output to return", required=True)
+    args = do_args(parser)
+    logger.debug(f"Looking for {args.output_key} in {args.stack_name}")
+
+    try:
+        my_stack = CFStack(args.stack_name, args.region)
+        stack_outputs = my_stack.get_outputs()
+
+        if args.output_key not in stack_outputs:
+            logger.critical(f"Failed to find output {args.output_key} in stack {args.stack_name} in region {args.stack_name}.")
+            exit(1)
+        else:
+            print(stack_outputs[args.output_key])
+            exit(0)
+
+    except CFStackDoesNotExistError as e:
+        logger.critical(f"Failed to find stack {args.stack_name} in region {args.stack_name}. Aborting....")
+        exit(1)
+
+
+    exit(0)
+
+
 def cft_validate():
     """Entrypoint to Validate a Cloudformation Template File."""
     parser = argparse.ArgumentParser(description="Validate a Cloudformation Template File")
@@ -333,6 +360,7 @@ def cft_delete():
         print(f"{args.stack_name} failed to delete: \033[91m{status}\033[0m")
         exit(1)
 
+
 def cft_diff():
     """Delete --stack-name."""
     parser = argparse.ArgumentParser(description="Compare new Template to existing template from a stack")
@@ -364,8 +392,6 @@ def cft_diff():
         sys.stdout.write(line + "\n")
 
     exit(1)
-
-
 
 
 def version():
@@ -403,7 +429,7 @@ def do_args(parser):
     # add ch to logger
     logger.addHandler(ch)
 
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     # Quiet Boto3
     logging.getLogger('botocore').setLevel(logging.WARNING)
     logging.getLogger('boto3').setLevel(logging.WARNING)

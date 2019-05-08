@@ -33,6 +33,7 @@ setup(
       "cft-generate-manifest = cftdeploy:cft_generate_manifest",
       "cft-get-events = cftdeploy:cft_get_events",
       "cft-diff = cftdeploy:cft_diff",
+      "cft-get-output = cftdeploy:cft_get_output",
     ]
   }
 )
