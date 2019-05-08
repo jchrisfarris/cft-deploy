@@ -54,6 +54,7 @@ def cft_deploy():
     parser = argparse.ArgumentParser(description="Deploy a cft-tool manifest")
     parser.add_argument("-m", "--manifest", help="Manifest file to deploy", required=True)
     parser.add_argument("--template-url", help="Override the manifest with this Template URL")
+    parser.add_argument("--override-region", help="Override the region defined in the manifest with this value")
     parser.add_argument("--force", help="Force the stack update even if the stack is in a non-normal state", action='store_true')
     parser.add_argument("--update-stack-policy", help="Override the existing stack policy for this update", action='store_true')
     parser.add_argument("--interactive", help="Create a change set and display it before executing the change", action='store_true')
@@ -65,7 +66,11 @@ def cft_deploy():
     if args.interactive or args.update_stack_policy:
         raise NotImplementedError
 
-    my_manifest = CFManifest(args.manifest)
+    if args.override_region:
+        my_manifest = CFManifest(args.manifest, region=args.override_region)
+    else:
+        my_manifest = CFManifest(args.manifest)
+
     # TODO: Process override stuff
     if args.template_url:
         my_manifest.override_option("S3Template", args.template_url)
@@ -195,12 +200,17 @@ def cft_validate_manifest():
     parser = argparse.ArgumentParser(description="Validate a Cloudformation Template File and its associated Manifest")
     parser.add_argument("--price", help="Return a link for a simple calculator pricing worksheet", action='store_true')
     parser.add_argument("--template-url", help="Override the manifest with this Template URL")
+    parser.add_argument("--override-region", help="Override the region defined in the manifest with this value")
     parser.add_argument("-m", "--manifest", help="Manifest file to deploy", required=True)
     parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     args = do_args(parser)
     logger.debug(f"Validating {args.manifest}")
 
-    my_manifest = CFManifest(args.manifest)
+    if args.override_region:
+        my_manifest = CFManifest(args.manifest, region=args.override_region)
+    else:
+        my_manifest = CFManifest(args.manifest)
+
     override = process_override_params(args)
 
     if args.template_url:

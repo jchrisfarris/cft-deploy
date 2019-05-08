@@ -16,7 +16,7 @@ logger = logging.getLogger('cft-deploy.manifest')
 class CFManifest(object):
     """Class to represent a CloudFormation Template"""
 
-    def __init__(self, manifest_filename, session=None):
+    def __init__(self, manifest_filename, session=None, region=None):
         """Constructs a CFManifest from the manifest file."""
         self.manifest_filename = manifest_filename
 
@@ -33,7 +33,11 @@ class CFManifest(object):
                 logger.critical(f"Unable to parse manifest file: {e}. Aborting....")
 
         self.stack_name = self.document['StackName']
-        self.region = self.document['Region']
+        if region is None:
+            self.region = self.document['Region']
+        else:
+            self.region = region
+            self.document['Region'] = region
 
         # create a CF Client in the correct region
         self.cf_client = self.session.client('cloudformation', region_name=self.region)
