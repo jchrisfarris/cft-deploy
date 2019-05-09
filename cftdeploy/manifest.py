@@ -26,11 +26,15 @@ class CFManifest(object):
             self.session = session
 
         # Read the file
-        with open(manifest_filename, 'r') as stream:
-            try:
+        try:
+            with open(manifest_filename, 'r') as stream:
                 self.document = yaml.safe_load(stream)
-            except yaml.YAMLError as e:
-                logger.critical(f"Unable to parse manifest file: {e}. Aborting....")
+        except yaml.YAMLError as e:
+            logger.critical(f"Unable to parse manifest file {manifest_filename}: {e}. Aborting....")
+            raise
+        except FileNotFoundError as e:
+            logger.critical(f"Unable to fine manifest file {manifest_filename}: {e}. Aborting...")
+            raise
 
         self.stack_name = self.document['StackName']
         if region is None:
@@ -105,6 +109,7 @@ class CFManifest(object):
         # This is a legacy hold-over from deploy-stack.rb. If encountered, I'd rather be forced to fix the manifest than
         # maintain code to support both methods, when the Placeholder: full-stack-name makes the SourcedParams section better
         if 'DependsOnStacks' in self.document:
+            logger.critical("DependsOnStacks Not yet implemented")
             raise NotImplementedError
 
         if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
