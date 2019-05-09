@@ -7,10 +7,10 @@ import json
 import datetime
 import dateutil.parser
 
+from .template import *
+
 import logging
 logger = logging.getLogger('cft-deploy.stack')
-
-from .template import *
 
 
 ResourceGoodStatus      = ["CREATE_COMPLETE", "UPDATE_COMPLETE"]
@@ -80,7 +80,7 @@ class CFStack(object):
             if 'EnableTerminationProtection' in payload:
                 del payload['EnableTerminationProtection']
 
-            print(json.dumps(payload, indent=2))
+            logger.debug(json.dumps(payload, indent=2))
             stack_response = self.cf_client.update_stack(**payload)
             if 'StackId' not in stack_response:
                 logger.error("Unable to update stack")

@@ -184,7 +184,7 @@ def cft_get_output():
             exit(0)
 
     except CFStackDoesNotExistError as e:
-        logger.critical(f"Failed to find stack {args.stack_name} in region {args.stack_name}. Aborting....")
+        logger.critical(f"Failed to find stack {args.stack_name} in region {args.region}. Aborting....")
         exit(1)
 
 
