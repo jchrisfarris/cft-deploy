@@ -79,7 +79,7 @@ class CFTemplate(object):
             else:
                 raise
 
-    def generate_manifest(self, manifest_file_name, substitutions=None):
+    def generate_manifest(self, manifest_file_name, substitutions=None, overwrite=False):
         """Generates a stub manifest file for this template and writes it to manifest_file_name.
         If substitutions are specified, these are populated into the stub manifest file.
         """
@@ -118,7 +118,9 @@ class CFTemplate(object):
         if self.filename is not None:
             manifest_values['template_line'] = f"LocalTemplate: {self.filename}"
         elif self.s3url is not None:
-            manifest_values['template_line'] = f"S3Template: {self.s3url}"
+            (bucket, object_key) = self.parse_s3_url(self.s3url)
+            template_url = f"https://s3.amazonaws.com/{bucket}/{object_key}"
+            manifest_values['template_line'] = f"S3Template: {template_url}"
 
         # If we pass in any other values we want to use, override the defaults here
         if substitutions is not None:
@@ -131,11 +133,16 @@ class CFTemplate(object):
 
         # logger.debug(f"Using Manifest Values: {manifest_values}")
         file_body = MANIFEST_SKELETON.format(**manifest_values)
-        # Now do the substitution and write the file
-        f = open(manifest_file_name, "w")
-        f.write(file_body)
-        f.close()
-        return(CFManifest(manifest_file_name, self.session))
+
+        if overwrite is not True and os.path.exists(manifest_file_name):
+            logger.critical(f"Refusing to overwrite {manifest_file_name}. File exists")
+            exit(1)
+        else:
+            # Now do the substitution and write the file
+            f = open(manifest_file_name, "w")
+            f.write(file_body)
+            f.close()
+            return(CFManifest(manifest_file_name, self.session))
 
     def diff(self, other_template):
         """prints out the differences between this template and another one."""
