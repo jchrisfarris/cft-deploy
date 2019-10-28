@@ -102,6 +102,8 @@ class CFManifest(object):
                 # contains boolean values.
                 if isinstance(v, bool):
                     strv = str(v).lower()
+                elif isinstance(v, list):
+                    strv = json.dumps(v)
                 else:
                     strv = str(v)
                 param_dict[k] = {'ParameterKey': k, 'ParameterValue': strv, 'UsePreviousValue': False}
@@ -112,14 +114,22 @@ class CFManifest(object):
             logger.critical("DependsOnStacks Not yet implemented")
             raise NotImplementedError
 
-        if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
-            # The new way
-            for source_key, source_stack_name in self.document['DependentStacks'].items():
-                my_stack = CFStack(source_stack_name, self.region, self.session)
-                if my_stack is None:
-                    logger.error(f"Creating stack object for {source_stack_name} returned None")
-                    raise CFStackDoesNotExistError(source_stack_name)
-                stack_map[source_key] = my_stack
+        try:
+            if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
+                # The new way
+                for source_key, source_stack_name in self.document['DependentStacks'].items():
+                    my_stack = CFStack(source_stack_name, self.region, self.session)
+                    if my_stack is None:
+                        logger.error(f"Creating stack object for {source_stack_name} returned None")
+                        raise CFStackDoesNotExistError(source_stack_name)
+                    stack_map[source_key] = my_stack
+        except CFStackDoesNotExistError as e:
+            logger.critical(f"Could not find dependent stack {source_stack_name} in {self.region}: {e}")
+            raise
+        except ClientError as e:
+            logger.critical(f"Error attempting to create {self.stack_name} in {self.region}: {e}")
+            raise
+
 
         if 'SourcedParameters' in self.document and self.document['SourcedParameters'] is not None:
             for k, v in self.document['SourcedParameters'].items():
