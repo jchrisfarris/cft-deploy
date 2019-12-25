@@ -28,6 +28,7 @@ def cft_get_events():
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
@@ -80,6 +81,7 @@ def cft_deploy():
     # Now see if the stack exists, if it doesn't then create, otherwise update
     try:
         my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'])
+        my_stack.get()
 
         # Only if the stack is in a normal status (or --force is specified) do we update
         status = my_stack.get_status()
@@ -174,6 +176,7 @@ def cft_get_output():
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
         stack_outputs = my_stack.get_outputs()
 
         if args.output_key not in stack_outputs:
@@ -336,6 +339,7 @@ def cft_delete():
     print(f"Deleting {args.stack_name}")
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
@@ -378,6 +382,7 @@ def cft_diff():
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)

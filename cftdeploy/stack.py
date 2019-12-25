@@ -38,9 +38,53 @@ class CFStack(object):
             self.session = session
 
         self.cf_client = self.session.client('cloudformation', region_name=region)
-        self.region = region
 
-        if self.get() is None:
+        # if self.get() is None:
+        #     return(None)
+
+    def create(self, template=None, S3Template=None, params=None, tags=None, OnFailure=None, stack_policy_body=None, TerminationProtection=None, TimeoutInMinutes=None):
+        logger.info(f"Creating Stack {self.stack_name} in {self.region}")
+
+        payload = {
+            'StackName':        self.stack_name,
+            'Capabilities':     ['CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND'],
+        }
+
+        if "tags" is not None:
+            payload['Tags'] = tags
+        if "params" is not None:
+            payload['Parameters'] = params
+        if "stack_policy_body" is not None:
+            payload['StackPolicyBody'] = json.dumps(stack_policy_body)
+        if "TerminationProtection" is not None:
+            payload['EnableTerminationProtection'] = TerminationProtection
+        if "TimeoutInMinutes" is not None:
+            payload['TimeoutInMinutes'] = TimeoutInMinutes
+        if "OnFailure" is not None:
+            payload['OnFailure'] = OnFailure
+
+        # Now make the decision on what to tell CF about the template
+        if template is not None:
+            payload['TemplateBody'] = self.template.template_body
+        elif "TemplateURL" is not None:
+            payload['TemplateURL'] = self.S3Template
+        else:
+            logger.critical("Neither 'TemplateBody' nor 'TemplateURL' found in manifest")
+            return(False)
+
+        try:
+            stack_response = self.cf_client.create_stack(**payload)
+            if 'StackId' not in stack_response:
+                logger.error("Unable to create stack")
+                return(None)
+            else:
+                my_new_stack = CFStack(self.stack_name, self.region, self.session)
+                return(my_new_stack)
+        except CFStackDoesNotExistError as e:
+            logger.error(f"Could not find new stack {self.stack_name} in {self.region}: {e}")
+            return(None)
+        except ClientError as e:
+            logger.error(f"Error attempting to create {self.stack_name} in {self.region}: {e}")
             return(None)
 
     def get(self):
