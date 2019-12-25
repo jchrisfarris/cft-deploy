@@ -190,7 +190,6 @@ def cft_get_output():
         logger.critical(f"Failed to find stack {args.stack_name} in region {args.region}. Aborting....")
         exit(1)
 
-
     exit(0)
 
 

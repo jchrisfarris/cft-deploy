@@ -130,7 +130,6 @@ class CFManifest(object):
             logger.critical(f"Error attempting to create {self.stack_name} in {self.region}: {e}")
             raise
 
-
         if 'SourcedParameters' in self.document and self.document['SourcedParameters'] is not None:
             for k, v in self.document['SourcedParameters'].items():
                 (stack_map_key, section, resource_id) = v.split('.')
@@ -222,6 +221,7 @@ class CFManifest(object):
             Parameters=self.params
         )
         return(response['Url'])
+
 
 class StackLookupException(Exception):
     """Thrown when the cross-stack lookup fails to find a specified Resource, Parameter or Output"""
