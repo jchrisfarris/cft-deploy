@@ -100,6 +100,7 @@ def cft_deploy():
         if my_stack is None:
             print("Failed to Create stack. Aborting....")
             exit(1)
+        my_stack.get()
 
     # Now display the events
     events = my_stack.get_stack_events()
