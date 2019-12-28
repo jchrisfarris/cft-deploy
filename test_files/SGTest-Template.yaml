@@ -128,24 +128,6 @@ Resources:
               Resource: arn:aws:s3:::amazon-ssm-packages-*
               Effect: Allow
 
-  InstanceASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      HealthCheckType: EC2
-      DesiredCapacity: 2
-      MaxSize: 3
-      MinSize: 2
-      Tags:
-        - Key: Name
-          Value: !Sub minion.${pTagApplication}
-          PropagateAtLaunch: 'true'
-      LaunchConfigurationName: !Ref InstanceLaunchConfig
-      VPCZoneIdentifier:
-        - !Ref pFirstPrivateSubnetId
-        - !Ref pSecondPrivateSubnetId
-    DependsOn:
-      - InstanceLaunchConfig
-
   InstanceLaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
