@@ -50,23 +50,28 @@ class CFStack(object):
             'Capabilities':     ['CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND'],
         }
 
-        if "tags" is not None:
+        if tags is not None:
             payload['Tags'] = tags
-        if "params" is not None:
-            payload['Parameters'] = params
-        if "stack_policy_body" is not None:
+
+        if params is not None:
+            payload['Parameters'] = []
+            for key,value in params.items():
+                payload['Parameters'].append({'ParameterKey': str(key), 'ParameterValue': str(value)})
+
+        if stack_policy_body is not None:
             payload['StackPolicyBody'] = json.dumps(stack_policy_body)
-        if "TerminationProtection" is not None:
+        if TerminationProtection is not None:
             payload['EnableTerminationProtection'] = TerminationProtection
-        if "TimeoutInMinutes" is not None:
+        if TimeoutInMinutes is not None:
             payload['TimeoutInMinutes'] = TimeoutInMinutes
-        if "OnFailure" is not None:
+        if OnFailure is not None:
             payload['OnFailure'] = OnFailure
 
         # Now make the decision on what to tell CF about the template
         if template is not None:
+            self.template = template
             payload['TemplateBody'] = self.template.template_body
-        elif "TemplateURL" is not None:
+        elif TemplateURL is not None:
             payload['TemplateURL'] = self.S3Template
         else:
             logger.critical("Neither 'TemplateBody' nor 'TemplateURL' found in manifest")
@@ -77,9 +82,7 @@ class CFStack(object):
             if 'StackId' not in stack_response:
                 logger.error("Unable to create stack")
                 return(None)
-            else:
-                my_new_stack = CFStack(self.stack_name, self.region, self.session)
-                return(my_new_stack)
+            return(stack_response['StackId'])
         except CFStackDoesNotExistError as e:
             logger.error(f"Could not find new stack {self.stack_name} in {self.region}: {e}")
             return(None)
@@ -229,6 +232,35 @@ class CFStack(object):
         template_body = response['TemplateBody']
         return(CFTemplate(template_body, self.region, session=self.session))
 
+    @classmethod
+    def find_by_resource(cls, PhysicalResourceId=None, LogicalResourceId=None, region=None, session=None):
+
+        if region is None:
+            if 'AWS_DEFAULT_REGION' not in os.environ:
+                logger.critical("No default region specified in environment")
+                exit(1)
+            region = os.environ['AWS_DEFAULT_REGION']
+
+        if session is None:
+            session = boto3.session.Session()
+        cf_client = session.client('cloudformation', region_name=region)
+
+        if PhysicalResourceId is not None:
+            response = cf_client.describe_stack_resources(PhysicalResourceId=PhysicalResourceId)
+        elif LogicalResourceId is not None:
+            response = cf_client.describe_stack_resources(LogicalResourceId=LogicalResourceId)
+        else:
+            logger.error("PhysicalResourceId or LogicalResourceId must not be None")
+            return(None)
+
+        if 'StackResources' not in response and len(response['StackResources']) == 0:
+            logger.error(f"Unable to find a stack for PhysicalResourceId={PhysicalResourceId} / LogicalResourceId={LogicalResourceId} in {region}")
+            return(None)
+
+        stack_name = response['StackResources'][0]['StackName']
+        stack = CFStack(stack_name, region, session=session)
+        stack.get()
+        return(stack)
 
 class CFStackDoesNotExistError(Exception):
     """Exception to raise when the CF Stack is not found. """
