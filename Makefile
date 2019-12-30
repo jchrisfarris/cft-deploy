@@ -80,6 +80,9 @@ test-manifest2-validate:
 	sed s/CHANGEME/$(FULL_STACK_NAME2)/g test_files/$(STACK_NAME2)-Manifest-Complete.yaml | sed s/FULL_STACK_NAME/$(FULL_STACK_NAME)/g > $(MANIFEST2)
 	cft-validate-manifest -m $(MANIFEST2)
 
+test-python-create:
+	./test_files/test-module.py --vpc-stack-name $(FULL_STACK_NAME) --stack-name python-$(version) --region $(TEST_REGION)
+
 test-deploy2:
 	cft-deploy -m $(MANIFEST2)
 
@@ -99,7 +102,7 @@ test-stack1: test test-validate test-upload test-s3-validate test-manifest test-
 
 test-stack2: test-manifest2-validate test-deploy2
 
-test-everything: test-stack1 test-stack2 test-delete test-clean
+test-everything: test-stack1 test-python-create test-stack2 test-delete test-clean
 
 
 ## PyPi Build & Release

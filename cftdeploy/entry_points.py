@@ -28,6 +28,7 @@ def cft_get_events():
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
@@ -80,6 +81,7 @@ def cft_deploy():
     # Now see if the stack exists, if it doesn't then create, otherwise update
     try:
         my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'])
+        my_stack.get()
 
         # Only if the stack is in a normal status (or --force is specified) do we update
         status = my_stack.get_status()
@@ -87,7 +89,7 @@ def cft_deploy():
             print(f"Stack {my_stack.stack_name} is in status {status} and --force was not specified. Aborting....")
             exit(1)
 
-        rc = my_stack.update(my_manifest, override=override)
+        rc = my_stack.update(manifest=my_manifest, override=override)
         if rc is None:
             print("Failed to Find or Update stack. Aborting....")
             exit(1)
@@ -98,6 +100,7 @@ def cft_deploy():
         if my_stack is None:
             print("Failed to Create stack. Aborting....")
             exit(1)
+        my_stack.get()
 
     # Now display the events
     events = my_stack.get_stack_events()
@@ -174,6 +177,7 @@ def cft_get_output():
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
         stack_outputs = my_stack.get_outputs()
 
         if args.output_key not in stack_outputs:
@@ -186,7 +190,6 @@ def cft_get_output():
     except CFStackDoesNotExistError as e:
         logger.critical(f"Failed to find stack {args.stack_name} in region {args.region}. Aborting....")
         exit(1)
-
 
     exit(0)
 
@@ -336,6 +339,7 @@ def cft_delete():
     print(f"Deleting {args.stack_name}")
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
@@ -378,6 +382,7 @@ def cft_diff():
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
+        my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)

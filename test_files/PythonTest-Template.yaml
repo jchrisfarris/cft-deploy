@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test Instance Stuff Template'
+
+Parameters:
+
+  pVpcId:
+    Description: ID of the VPC
+    Type: AWS::EC2::VPC::Id
+
+  pOpenNetMask:
+    Description: Open netmask
+    Type: String
+    Default: 192.168.10.0/17
+
+Resources:
+
+# Application instances
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref 'pVpcId'
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        CidrIp: !Ref 'pOpenNetMask'
+        ToPort: '22'
+        FromPort: '22'
+      GroupDescription: Instance Host Security Group
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-Instance-SG"
+
+Outputs:
+  StackName:
+    Value: !Ref 'AWS::StackName'
+
