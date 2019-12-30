@@ -71,7 +71,8 @@ class CFStack(object):
         if template is not None:
             self.template = template
             payload['TemplateBody'] = self.template.template_body
-        elif TemplateURL is not None:
+        elif S3Template is not None:
+            self.S3Template = S3Template
             payload['TemplateURL'] = self.S3Template
         else:
             logger.critical("Neither 'TemplateBody' nor 'TemplateURL' found in manifest")
@@ -112,13 +113,18 @@ class CFStack(object):
         """ Deletes this stack."""
         self.cf_client.delete_stack(StackName=self.StackId)
 
-    def update(self, manifest, override=None):
+    def update(self, manifest=None, override=None, payload=None):
         """ Updates a Stack based on this manifest."""
         logger.info(f"Updating Stack {self.stack_name} in {self.region}")
-        try:
+        if manifest is None and payload is None:
+            logger.error("update has neither manifest nor payload")
+            return(None)
+
+        if manifest is not None:
             manifest.fetch_parameters(override=override)
             payload = manifest.build_cft_payload()
 
+        try:
             # These are only valid for Create, but may or may not be in the manifest.
             if 'TimeoutInMinutes' in payload:
                 del payload['TimeoutInMinutes']
@@ -233,7 +239,7 @@ class CFStack(object):
         return(CFTemplate(template_body, self.region, session=self.session))
 
     @classmethod
-    def find_by_resource(cls, PhysicalResourceId=None, LogicalResourceId=None, region=None, session=None):
+    def find_by_resource(cls, PhysicalResourceId=None, region=None, session=None):
 
         if region is None:
             if 'AWS_DEFAULT_REGION' not in os.environ:
@@ -245,13 +251,16 @@ class CFStack(object):
             session = boto3.session.Session()
         cf_client = session.client('cloudformation', region_name=region)
 
-        if PhysicalResourceId is not None:
+        try:
+            if PhysicalResourceId is None:
+                logger.error("PhysicalResourceId must be set")
+                return(None)
             response = cf_client.describe_stack_resources(PhysicalResourceId=PhysicalResourceId)
-        elif LogicalResourceId is not None:
-            response = cf_client.describe_stack_resources(LogicalResourceId=LogicalResourceId)
-        else:
-            logger.error("PhysicalResourceId or LogicalResourceId must not be None")
-            return(None)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ValidationError':
+                return(None)
+            else:
+                raise
 
         if 'StackResources' not in response and len(response['StackResources']) == 0:
             logger.error(f"Unable to find a stack for PhysicalResourceId={PhysicalResourceId} / LogicalResourceId={LogicalResourceId} in {region}")

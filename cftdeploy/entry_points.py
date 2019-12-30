@@ -89,7 +89,7 @@ def cft_deploy():
             print(f"Stack {my_stack.stack_name} is in status {status} and --force was not specified. Aborting....")
             exit(1)
 
-        rc = my_stack.update(my_manifest, override=override)
+        rc = my_stack.update(manifest=my_manifest, override=override)
         if rc is None:
             print("Failed to Find or Update stack. Aborting....")
             exit(1)
