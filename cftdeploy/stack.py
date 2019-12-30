@@ -55,7 +55,7 @@ class CFStack(object):
 
         if params is not None:
             payload['Parameters'] = []
-            for key,value in params.items():
+            for key, value in params.items():
                 payload['Parameters'].append({'ParameterKey': str(key), 'ParameterValue': str(value)})
 
         if stack_policy_body is not None:
@@ -270,6 +270,7 @@ class CFStack(object):
         stack = CFStack(stack_name, region, session=session)
         stack.get()
         return(stack)
+
 
 class CFStackDoesNotExistError(Exception):
     """Exception to raise when the CF Stack is not found. """
