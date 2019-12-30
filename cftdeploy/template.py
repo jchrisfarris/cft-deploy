@@ -15,7 +15,7 @@ logger = logging.getLogger('cft-deploy.template')
 class CFTemplate(object):
     """Class to represent a CloudFormation Template"""
 
-    def __init__(self, template_body, filename=None, s3url=None, session=None):
+    def __init__(self, template_body, region, filename=None, s3url=None, session=None):
         """Constructs a CFTemplate from the template_body (json or yaml)."""
         self.template_body = template_body
         self.filename = filename
@@ -26,17 +26,26 @@ class CFTemplate(object):
         else:
             self.session = session
 
-        self.cf_client = self.session.client('cloudformation')
+        self.cf_client = self.session.client('cloudformation', region_name=region)
+        self.region = region
+
+    def __str__(self):
+        if self.s3url is not None:
+            return(self.s3url)
+        elif self.filename is not None:
+            return(self.filename)
+        else:
+            return("A Template has no name")
 
     @classmethod
-    def read(cls, filename, session=None):
+    def read(cls, filename, region, session=None):
         """Read the template from filename and then initialize."""
         f = open(filename, "r")
         template_body = f.read()
-        return(CFTemplate(template_body, filename=filename, session=session))
+        return(CFTemplate(template_body, region, filename=filename, session=session))
 
     @classmethod
-    def download(cls, bucket, object_key, session=None):
+    def download(cls, bucket, object_key, region, session=None):
         """Downloads the template from S3 and then initialize."""
         try:
             s3 = boto3.client('s3')  # FIXME will fail for cross-account roles
@@ -44,8 +53,8 @@ class CFTemplate(object):
                 Bucket=bucket,
                 Key=object_key
             )
-            template_body = response['Body'].read()
-            return(CFTemplate(template_body, s3url=f"s3://{bucket}/{object_key}", session=session))
+            template_body = response['Body'].read().decode("utf-8")
+            return(CFTemplate(template_body, region, s3url=f"s3://{bucket}/{object_key}", session=session))
         except ClientError as e:
             logger.error("ClientError downloading template: {}".format(e))
             raise
@@ -70,7 +79,7 @@ class CFTemplate(object):
             else:
                 raise
 
-    def generate_manifest(self, manifest_file_name, substitutions=None):
+    def generate_manifest(self, manifest_file_name, substitutions=None, overwrite=False):
         """Generates a stub manifest file for this template and writes it to manifest_file_name.
         If substitutions are specified, these are populated into the stub manifest file.
         """
@@ -109,7 +118,9 @@ class CFTemplate(object):
         if self.filename is not None:
             manifest_values['template_line'] = f"LocalTemplate: {self.filename}"
         elif self.s3url is not None:
-            manifest_values['template_line'] = f"S3Template: {self.s3url}"
+            (bucket, object_key) = self.parse_s3_url(self.s3url)
+            template_url = f"https://s3.amazonaws.com/{bucket}/{object_key}"
+            manifest_values['template_line'] = f"S3Template: {template_url}"
 
         # If we pass in any other values we want to use, override the defaults here
         if substitutions is not None:
@@ -122,11 +133,16 @@ class CFTemplate(object):
 
         # logger.debug(f"Using Manifest Values: {manifest_values}")
         file_body = MANIFEST_SKELETON.format(**manifest_values)
-        # Now do the substitution and write the file
-        f = open(manifest_file_name, "w")
-        f.write(file_body)
-        f.close()
-        return(CFManifest(manifest_file_name, self.session))
+
+        if overwrite is not True and os.path.exists(manifest_file_name):
+            logger.critical(f"Refusing to overwrite {manifest_file_name}. File exists")
+            exit(1)
+        else:
+            # Now do the substitution and write the file
+            f = open(manifest_file_name, "w")
+            f.write(file_body)
+            f.close()
+            return(CFManifest(manifest_file_name, self.session))
 
     def diff(self, other_template):
         """prints out the differences between this template and another one."""

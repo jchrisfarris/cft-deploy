@@ -16,7 +16,7 @@ logger = logging.getLogger('cft-deploy.manifest')
 class CFManifest(object):
     """Class to represent a CloudFormation Template"""
 
-    def __init__(self, manifest_filename, session=None):
+    def __init__(self, manifest_filename, session=None, region=None):
         """Constructs a CFManifest from the manifest file."""
         self.manifest_filename = manifest_filename
 
@@ -26,20 +26,28 @@ class CFManifest(object):
             self.session = session
 
         # Read the file
-        with open(manifest_filename, 'r') as stream:
-            try:
+        try:
+            with open(manifest_filename, 'r') as stream:
                 self.document = yaml.safe_load(stream)
-            except yaml.YAMLError as e:
-                logger.critical(f"Unable to parse manifest file: {e}. Aborting....")
+        except yaml.YAMLError as e:
+            logger.critical(f"Unable to parse manifest file {manifest_filename}: {e}. Aborting....")
+            raise
+        except FileNotFoundError as e:
+            logger.critical(f"Unable to fine manifest file {manifest_filename}: {e}. Aborting...")
+            raise
 
         self.stack_name = self.document['StackName']
-        self.region = self.document['Region']
+        if region is None:
+            self.region = self.document['Region']
+        else:
+            self.region = region
+            self.document['Region'] = region
 
         # create a CF Client in the correct region
         self.cf_client = self.session.client('cloudformation', region_name=self.region)
 
         if 'LocalTemplate' in self.document:
-            self.template = CFTemplate.read(self.document['LocalTemplate'])
+            self.template = CFTemplate.read(self.document['LocalTemplate'], self.region)
         else:
             self.template = None
 
@@ -90,21 +98,37 @@ class CFManifest(object):
             if v is None:
                 logger.warning(f"Parameter {k} has a null value in the manifest file and will be ignored!")
             else:
-                param_dict[k] = {'ParameterKey': k, 'ParameterValue': v, 'UsePreviousValue': False}
+                # Python doesn't convert a boolean to a lowercase string which is expected by the CF Service when the template
+                # contains boolean values.
+                if isinstance(v, bool):
+                    strv = str(v).lower()
+                elif isinstance(v, list):
+                    strv = json.dumps(v)
+                else:
+                    strv = str(v)
+                param_dict[k] = {'ParameterKey': k, 'ParameterValue': strv, 'UsePreviousValue': False}
 
         # This is a legacy hold-over from deploy-stack.rb. If encountered, I'd rather be forced to fix the manifest than
         # maintain code to support both methods, when the Placeholder: full-stack-name makes the SourcedParams section better
         if 'DependsOnStacks' in self.document:
+            logger.critical("DependsOnStacks Not yet implemented")
             raise NotImplementedError
 
-        if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
-            # The new way
-            for source_key, source_stack_name in self.document['DependentStacks'].items():
-                my_stack = CFStack(source_stack_name, self.region, self.session)
-                if my_stack is None:
-                    logger.error(f"Creating stack object for {source_stack_name} returned None")
-                    raise CFStackDoesNotExistError(source_stack_name)
-                stack_map[source_key] = my_stack
+        try:
+            if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
+                # The new way
+                for source_key, source_stack_name in self.document['DependentStacks'].items():
+                    my_stack = CFStack(source_stack_name, self.region, self.session)
+                    if my_stack is None:
+                        logger.error(f"Creating stack object for {source_stack_name} returned None")
+                        raise CFStackDoesNotExistError(source_stack_name)
+                    stack_map[source_key] = my_stack
+        except CFStackDoesNotExistError as e:
+            logger.critical(f"Could not find dependent stack {source_stack_name} in {self.region}: {e}")
+            raise
+        except ClientError as e:
+            logger.critical(f"Error attempting to create {self.stack_name} in {self.region}: {e}")
+            raise
 
         if 'SourcedParameters' in self.document and self.document['SourcedParameters'] is not None:
             for k, v in self.document['SourcedParameters'].items():
@@ -118,19 +142,22 @@ class CFManifest(object):
                     if resource_id in params:
                         param_dict[k] = {'ParameterKey': k, 'ParameterValue': params[resource_id], 'UsePreviousValue': False}
                     else:
-                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Parameters")
+                        logger.error(f"Unable to find {resource_id} in {source_stack.stack_name} (aliased as {stack_map_key}) Parameters")
+                        raise StackLookupException
                 elif section == "Outputs":
                     outputs = source_stack.get_outputs()
                     if resource_id in outputs:
                         param_dict[k] = {'ParameterKey': k, 'ParameterValue': outputs[resource_id], 'UsePreviousValue': False}
                     else:
-                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Outputs")
+                        logger.error(f"Unable to find {resource_id} in {source_stack.stack_name} (aliased as {stack_map_key}) Outputs")
+                        raise StackLookupException
                 elif section == "Resources":
                     resources = source_stack.get_resources()
                     if resource_id in resources:
                         param_dict[k] = {'ParameterKey': k, 'ParameterValue': resources[resource_id], 'UsePreviousValue': False}
                     else:
-                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Resources")
+                        logger.error(f"Unable to find {resource_id} in {source_stack.stack_name} (aliased as {stack_map_key}) Resources")
+                        raise StackLookupException
                 else:
                     logger.error(f"Invaluid SourcedParameters section type: {section}")
 
@@ -156,14 +183,19 @@ class CFManifest(object):
         payload = {
             'StackName':        self.document['StackName'],
             'Parameters':       self.params,
-            # 'DisableRollback':  self.document['DisableRollback'],
-            'TimeoutInMinutes': int(re.sub("\D", "", self.document['TimeOut'])),
-            'Capabilities':     ['CAPABILITY_NAMED_IAM'],
-            'OnFailure':        self.document['OnFailure'],
-            'StackPolicyBody':  json.dumps(stack_policy_body),
+            'Capabilities':     ['CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND'],
             'Tags':             [],
-            'EnableTerminationProtection': self.document['TerminationProtection']
         }
+
+        # These elements may or may not be in the manifest and should be handled accordingly.
+        if 'TerminationProtection' in self.document:
+            payload['EnableTerminationProtection'] = self.document['TerminationProtection']
+        if 'TimeOut' in self.document:
+            payload['TimeoutInMinutes'] = int(re.sub("\D", "", self.document['TimeOut']))
+        if 'OnFailure' in self.document:
+            payload['OnFailure'] = self.document['OnFailure']
+        if 'StackPolicy' in self.document:
+            payload['StackPolicyBody'] = json.dumps(stack_policy_body)
 
         # Now make the decision on what to tell CF about the template
         if 'LocalTemplate' in self.document:
@@ -189,3 +221,7 @@ class CFManifest(object):
             Parameters=self.params
         )
         return(response['Url'])
+
+
+class StackLookupException(Exception):
+    """Thrown when the cross-stack lookup fails to find a specified Resource, Parameter or Output"""

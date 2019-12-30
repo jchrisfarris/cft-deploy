@@ -20,7 +20,8 @@ setup(
   python_requires='>=3.6',
   include_package_data=True,
   install_requires=[
-    'boto3 >= 1.9.1',
+    'boto3 >= 1.10.0',
+    'botocore >= 1.13.0'
   ],
   entry_points={
     'console_scripts': [
@@ -32,6 +33,8 @@ setup(
       "cft-delete  = cftdeploy:cft_delete",
       "cft-generate-manifest = cftdeploy:cft_generate_manifest",
       "cft-get-events = cftdeploy:cft_get_events",
+      "cft-diff = cftdeploy:cft_diff",
+      "cft-get-output = cftdeploy:cft_get_output",
     ]
   }
 )

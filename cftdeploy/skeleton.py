@@ -57,7 +57,7 @@ Tags:
 # see http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html#stack-policy-reference
 ###########
 StackPolicy:
-    # All other resources should be modifiable.
+    # All resources should be modifiable.
   - Resource: "*"
     Effect: Allow
     Principal: "*"
