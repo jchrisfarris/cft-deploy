@@ -119,7 +119,7 @@ class CFManifest(object):
                 # The new way
                 for source_key, source_stack_name in self.document['DependentStacks'].items():
                     my_stack = CFStack(source_stack_name, self.region, self.session)
-                    if my_stack is None:
+                    if my_stack is None or my_stack.get() is None:
                         logger.error(f"Creating stack object for {source_stack_name} returned None")
                         raise CFStackDoesNotExistError(source_stack_name)
                     stack_map[source_key] = my_stack
