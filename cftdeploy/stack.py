@@ -103,6 +103,7 @@ class CFStack(object):
                 return(None)
             self.stackData = response['Stacks'][0]
             self.__dict__.update(self.stackData)
+            return(self.StackId)
         except ClientError as e:
             if e.response['Error']['Code'] == "ValidationError":
                 raise CFStackDoesNotExistError(self.stack_name)

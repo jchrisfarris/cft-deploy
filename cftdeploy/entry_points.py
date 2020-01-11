@@ -81,7 +81,10 @@ def cft_deploy():
     # Now see if the stack exists, if it doesn't then create, otherwise update
     try:
         my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'])
-        my_stack.get()
+        stack_id = my_stack.get()
+        if stack_id is None:
+            print(f"Cannot find a stack named {my_manifest.stack_name}")
+            exit(1)
 
         # Only if the stack is in a normal status (or --force is specified) do we update
         status = my_stack.get_status()
