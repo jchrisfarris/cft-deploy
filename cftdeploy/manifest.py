@@ -79,6 +79,26 @@ class CFManifest(object):
         payload = self.build_cft_payload()
         return(payload)
 
+    def shellout(self, cmd):
+        """Simply shell out and run a command.  Handy for injecting dynamic data into stack."""
+        stream = os.popen('echo Returned output')
+        output = stream.read()
+        return output
+
+    def prepvar(self, var):
+        if var.startswith('!Sys '):
+            return self.shellout( var[len('!Sys '):] )
+
+        return var   
+
+    def load_stack(self, stack_name):
+        """Retrieves the elemnts of a previously deployed stact for use in the current running deployment."""
+        my_stack = CFStack( stack_name, self.region, self.session)
+        if my_stack is None:
+            logger.error(f"Creating stack object for {stack_name} returned None")
+            raise CFStackDoesNotExistError(stack_name)
+        return my_stack 
+
     def fetch_parameters(self, override=None):
         """Based on the manifest's Sourced Parameters, find all the parameters and populate them."""
 
@@ -100,19 +120,19 @@ class CFManifest(object):
         if 'DependentStacks' in self.document and self.document['DependentStacks'] is not None:
             # The new way
             for source_key, source_stack_name in self.document['DependentStacks'].items():
-                my_stack = CFStack(source_stack_name, self.region, self.session)
-                if my_stack is None:
-                    logger.error(f"Creating stack object for {source_stack_name} returned None")
-                    raise CFStackDoesNotExistError(source_stack_name)
+                my_stack = self.load_stack(source_stack_name)
                 stack_map[source_key] = my_stack
 
         if 'SourcedParameters' in self.document and self.document['SourcedParameters'] is not None:
             for k, v in self.document['SourcedParameters'].items():
                 (stack_map_key, section, resource_id) = v.split('.')
                 if stack_map_key not in stack_map:
-                    logger.error(f"DependentStack {stack_map_key} was required by {k} but was not found or referenced.")
-                    continue
+                    my_stack = self.load_stack( stack_map_key )
+                    if my_stack:
+                        stack_map[stack_map_key] = my_stack
+
                 source_stack = stack_map[stack_map_key]
+                
                 if section == "Parameters":
                     params = source_stack.get_parameters()
                     if resource_id in params:
@@ -177,7 +197,7 @@ class CFManifest(object):
         # format and add the tags
         if 'Tags' in self.document:
             for k, v in self.document['Tags'].items():
-                payload['Tags'].append({'Key': k, 'Value': v})
+                payload['Tags'].append({'Key': k, 'Value': self.prepvar( v )})
 
         return(payload)
 
