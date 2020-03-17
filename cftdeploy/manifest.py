@@ -138,19 +138,19 @@ class CFManifest(object):
                     if resource_id in params:
                         param_dict[k] = {'ParameterKey': k, 'ParameterValue': params[resource_id], 'UsePreviousValue': False}
                     else:
-                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Parameters")
+                        logger.error(f"Unable to find {resource_id} in {source_stack.stack_name} (aliased as {stack_map_key}) Parameters")
                 elif section == "Outputs":
                     outputs = source_stack.get_outputs()
                     if resource_id in outputs:
                         param_dict[k] = {'ParameterKey': k, 'ParameterValue': outputs[resource_id], 'UsePreviousValue': False}
                     else:
-                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Outputs")
+                        logger.error(f"Unable to find {resource_id} in {source_stack.stack_name} (aliased as {stack_map_key}) Outputs")
                 elif section == "Resources":
                     resources = source_stack.get_resources()
                     if resource_id in resources:
                         param_dict[k] = {'ParameterKey': k, 'ParameterValue': resources[resource_id], 'UsePreviousValue': False}
                     else:
-                        logger.error(f"Unable to find {resource_id} in {source_stack.name} (aliased as {stack_map_key}) Resources")
+                        logger.error(f"Unable to find {resource_id} in {source_stack.stack_name} (aliased as {stack_map_key}) Resources")
                 else:
                     logger.error(f"Invaluid SourcedParameters section type: {section}")
 
