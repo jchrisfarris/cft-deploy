@@ -272,7 +272,8 @@ def cft_validate_manifest():
     except CFStackDoesNotExistError as e:
         print(f"Stack {e.stackname} doesn't exist. Unable to validate manifest.")
         exit(1)
-
+    except StackLookupException as e:
+        exit(1)
 
 def cft_upload():
     """Entrypoint to upload a Cloudformation Template File to s3."""
@@ -312,6 +313,9 @@ def cft_generate_manifest():
         logger.info(f"Generating Manifest file {args.manifest} from {args.s3_url}")
         source = args.s3_url
         (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
+        if bucket == None or object_key == None:
+            logger.critical(f"Invalid S3 URL. Cannot extract bucket or object. Aborting")
+            exit(1)
         logger.debug(f"Fetching {object_key} from {bucket}")
         my_template = CFTemplate.download(bucket, object_key, args.region)
 
@@ -331,6 +335,8 @@ def cft_generate_manifest():
         parser.print_help()
         print(f"\n\nTemplate {args.template} exceeds the maximum length for local templates")
         print("Please upload the file to S3, then call cfg-generate-manifest with the --s3-url option")
+    except yaml.scanner.ScannerError as e:
+        print("CFT Default Params have an invalid yaml value. Double check quoting before deploying")
 
 
 def cft_delete():
