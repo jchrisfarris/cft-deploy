@@ -93,20 +93,21 @@ class CFManifest(object):
         param_dict = {}  # we add all the parameters to this dictionary to de-dupe them
         stack_map = {}
 
-        # Start with the regular parameters from the Manifest
-        for k, v in self.document['Parameters'].items():
-            if v is None:
-                logger.warning(f"Parameter {k} has a null value in the manifest file and will be ignored!")
-            else:
-                # Python doesn't convert a boolean to a lowercase string which is expected by the CF Service when the template
-                # contains boolean values.
-                if isinstance(v, bool):
-                    strv = str(v).lower()
-                elif isinstance(v, list):
-                    strv = json.dumps(v)
+        if self.document['Parameters'] is not None:
+            # Start with the regular parameters from the Manifest
+            for k, v in self.document['Parameters'].items():
+                if v is None:
+                    logger.warning(f"Parameter {k} has a null value in the manifest file and will be ignored!")
                 else:
-                    strv = str(v)
-                param_dict[k] = {'ParameterKey': k, 'ParameterValue': strv, 'UsePreviousValue': False}
+                    # Python doesn't convert a boolean to a lowercase string which is expected by the CF Service when the template
+                    # contains boolean values.
+                    if isinstance(v, bool):
+                        strv = str(v).lower()
+                    elif isinstance(v, list):
+                        strv = json.dumps(v)
+                    else:
+                        strv = str(v)
+                    param_dict[k] = {'ParameterKey': k, 'ParameterValue': strv, 'UsePreviousValue': False}
 
         # This is a legacy hold-over from deploy-stack.rb. If encountered, I'd rather be forced to fix the manifest than
         # maintain code to support both methods, when the Placeholder: full-stack-name makes the SourcedParams section better
@@ -225,3 +226,4 @@ class CFManifest(object):
 
 class StackLookupException(Exception):
     """Thrown when the cross-stack lookup fails to find a specified Resource, Parameter or Output"""
+    pass
