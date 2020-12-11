@@ -175,6 +175,10 @@ class CFStack(object):
         """ Return all the PhysicalResourceIds for each LogicalId in the template"""
         response = self.cf_client.list_stack_resources(StackName=self.StackId)
         self.resources = response['StackResourceSummaries']
+        while "NextToken" in response:
+            response = self.cf_client.list_stack_resources(StackName=self.StackId, NextToken=response[ "NextToken"])
+            self.resources.extend( response['StackResourceSummaries'] )
+
         output = {}
         for o in self.resources:
             if 'PhysicalResourceId' not in o:
