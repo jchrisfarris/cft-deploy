@@ -167,6 +167,8 @@ class CFTemplate(object):
     @classmethod
     def parse_s3_url(cls, s3url):
         '''Parse an s3url (s3://bucket/object_key) and return the bucket and object_key'''
+        bucket = None
+        object_key = None
         r = re.match(r"s3://(.*?)/(.*?)$", s3url)
         if r:
             bucket = r.group(1)
