@@ -144,8 +144,16 @@ class CFStack(object):
             logger.error(f"Could not find stack {self.stack_name} in {self.region}: {e}")
             return(None)
         except ClientError as e:
-            logger.error(f"Error attempting to update {self.stack_name} in {self.region}: {e}")
-            return(None)
+            if e.response['Error']['Code'] == "ValidationError":
+                if "No updates are to be performed." in str(e):
+                    logger.info(f"No updates to be performed")
+                    return(True)
+                else:
+                    logger.error(f"Error attempting to update {self.stack_name} in {self.region}: {e}")
+                    return(None)
+            else:
+                logger.error(f"Error attempting to update {self.stack_name} in {self.region}: {e}")
+                return(None)
 
     def get_parameters(self):
         """ Return a dict of each parameter to this stack."""
