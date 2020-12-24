@@ -67,10 +67,13 @@ def cft_deploy():
     if args.interactive or args.update_stack_policy:
         raise NotImplementedError
 
-    if args.override_region:
-        my_manifest = CFManifest(args.manifest, region=args.override_region)
-    else:
-        my_manifest = CFManifest(args.manifest)
+    try:
+        if args.override_region:
+            my_manifest = CFManifest(args.manifest, region=args.override_region)
+        else:
+            my_manifest = CFManifest(args.manifest)
+    except Exception:
+        exit(1)
 
     # TODO: Process override stuff
     if args.template_url:
