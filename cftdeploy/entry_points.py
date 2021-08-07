@@ -101,12 +101,15 @@ def cft_deploy():
             exit(1)
     except CFStackDoesNotExistError as e:
         logger.info(e)
-        # Then we're creating the stack
-        my_stack = my_manifest.create_stack(override=override)
-        if my_stack is None:
-            print("Failed to Create stack. Aborting....")
+        try:
+            # Then we're creating the stack
+            my_stack = my_manifest.create_stack(override=override)
+            if my_stack is None:
+                print("Failed to Create stack. Aborting....")
+                exit(1)
+            my_stack.get()
+        except Exception as e:
             exit(1)
-        my_stack.get()
 
     # Now display the events
     events = my_stack.get_stack_events()
