@@ -59,7 +59,7 @@ def cft_deploy():
     parser.add_argument("--force", help="Force the stack update even if the stack is in a non-normal state", action='store_true')
     parser.add_argument("--update-stack-policy", help="Override the existing stack policy for this update", action='store_true')
     parser.add_argument("--interactive", help="Create a change set and display it before executing the change", action='store_true')
-    parser.add_argument("--no-follow", help="Just send the request to CloudFormation. Don't follow the progress of the operation", action='store_true')
+    parser.add_argument("--no-status", help="Don't display the progress of the stack operation", action='store_true')
     parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     args = do_args(parser)
     logger.info(f"Deploying {args.manifest}")
@@ -112,7 +112,7 @@ def cft_deploy():
         except Exception as e:
             exit(1)
 
-    if args.no_follow:
+    if args.no_status:
         print("No Follow specified. Exiting....")
         exit(0)
 
