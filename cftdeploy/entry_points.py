@@ -60,6 +60,9 @@ def cft_deploy():
     parser.add_argument("--update-stack-policy", help="Override the existing stack policy for this update", action='store_true')
     parser.add_argument("--interactive", help="Create a change set and display it before executing the change", action='store_true')
     parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
+    # parser.add_argument("--region", help="Make API Calls in this region")
+    parser.add_argument("--profile", help="Use the BOTO3 Profile")
+
     args = do_args(parser)
     logger.info(f"Deploying {args.manifest}")
 
@@ -67,12 +70,18 @@ def cft_deploy():
     if args.interactive or args.update_stack_policy:
         raise NotImplementedError
 
+    if not args.profile:
+        session =  boto3.session.Session()
+    else:
+        session = boto3.session.Session(profile_name=args.profile)
+
     try:
         if args.override_region:
-            my_manifest = CFManifest(args.manifest, region=args.override_region)
+            my_manifest = CFManifest(args.manifest, region=args.override_region, session=session)
         else:
-            my_manifest = CFManifest(args.manifest)
+            my_manifest = CFManifest(args.manifest,  session=session)
     except Exception:
+        raise
         exit(1)
 
     # TODO: Process override stuff
@@ -83,7 +92,7 @@ def cft_deploy():
 
     # Now see if the stack exists, if it doesn't then create, otherwise update
     try:
-        my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'])
+        my_stack = CFStack(my_manifest.stack_name, my_manifest.document['Region'],  session=session)
         stack_id = my_stack.get()
         if stack_id is None:
             print(f"Cannot find a stack named {my_manifest.stack_name}")
@@ -181,11 +190,18 @@ def cft_get_output():
     parser = argparse.ArgumentParser(description="Get Resource IDs by Logical Id")
     parser.add_argument("--stack-name", help="Stackname to search", required=True)
     parser.add_argument("--output-key", help="Stack Output to return", required=True)
+    parser.add_argument("--profile", help="Use the BOTO3 Profile")
+
     args = do_args(parser)
     logger.debug(f"Looking for {args.output_key} in {args.stack_name}")
 
+    if not args.profile:
+        session =  boto3.session.Session()
+    else:
+        session = boto3.session.Session(profile_name=args.profile)
+
     try:
-        my_stack = CFStack(args.stack_name, args.region)
+        my_stack = CFStack(args.stack_name, args.region, session=session)
         my_stack.get()
         stack_outputs = my_stack.get_outputs()
 
