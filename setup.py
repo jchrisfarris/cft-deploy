@@ -21,7 +21,8 @@ setup(
   include_package_data=True,
   install_requires=[
     'boto3 >= 1.10.0',
-    'botocore >= 1.13.0'
+    'botocore >= 1.13.0',
+    'pyyaml',
   ],
   entry_points={
     'console_scripts': [
