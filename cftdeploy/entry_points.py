@@ -442,7 +442,7 @@ def do_args(parser):
     parser.add_argument("--json", help="Return Data in json format", action='store_true')
     parser.add_argument("--env", help="Return data in bash env format", action='store_true')
     parser.add_argument("--version", help="print cft-deploy version", action='store_true')
-    parser.add_argument("--region", help="AWS Region", default=os.environ['AWS_DEFAULT_REGION'])
+    parser.add_argument("--region", help="AWS Region", default=os.getenv('AWS_DEFAULT_REGION', default='us-east-1'))
     args = parser.parse_args()
 
     if args.version:
