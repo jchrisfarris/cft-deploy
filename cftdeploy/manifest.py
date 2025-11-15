@@ -25,15 +25,33 @@ class CFManifest(object):
         else:
             self.session = session
 
-        # Read the file
+        # Read the file with security constraints
         try:
+            # Check file size to prevent DoS attacks (limit to 10MB)
+            file_size = os.path.getsize(manifest_filename)
+            max_size = 10 * 1024 * 1024  # 10MB
+            if file_size > max_size:
+                logger.critical(f"Manifest file {manifest_filename} is too large ({file_size} bytes). Maximum allowed is {max_size} bytes.")
+                raise ValueError(f"Manifest file exceeds maximum size of {max_size} bytes")
+
             with open(manifest_filename, 'r') as stream:
-                self.document = yaml.safe_load(stream)
+                # Read with size limit for additional safety
+                content = stream.read(max_size)
+                self.document = yaml.safe_load(content)
+
+            # Validate that the parsed document is a dictionary
+            if not isinstance(self.document, dict):
+                logger.critical(f"Manifest file {manifest_filename} must contain a YAML dictionary/object at the root level")
+                raise ValueError("Invalid manifest structure: root must be a dictionary")
+
         except yaml.YAMLError as e:
             logger.critical(f"Unable to parse manifest file {manifest_filename}: {e}. Aborting....")
             raise
         except FileNotFoundError as e:
-            logger.critical(f"Unable to fine manifest file {manifest_filename}: {e}. Aborting...")
+            logger.critical(f"Unable to find manifest file {manifest_filename}: {e}. Aborting...")
+            exit(1)
+        except ValueError as e:
+            logger.critical(f"Invalid manifest file {manifest_filename}: {e}")
             raise
 
         self.stack_name = self.document['StackName']

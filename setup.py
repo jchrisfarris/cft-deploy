@@ -4,9 +4,15 @@ import os, sys
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+# Read version directly from _version.py to avoid command injection
+version_file = os.path.join(os.path.dirname(__file__), 'cftdeploy', '_version.py')
+version_dict = {}
+with open(version_file) as f:
+    exec(f.read(), version_dict)
+
 setup(
   name='cftdeploy',
-  version=os.popen('{} cftdeploy/_version.py'.format(sys.executable)).read().rstrip(),
+  version=version_dict['__version__'],
   author='Chris Farris',
   author_email='chris@room17.com',
   license="Apache License 2.0",
@@ -20,9 +26,9 @@ setup(
   python_requires='>=3.6',
   include_package_data=True,
   install_requires=[
-    'boto3 >= 1.10.0',
-    'botocore >= 1.13.0',
-    'pyyaml',
+    'boto3 >= 1.26.0, < 2.0.0',  # Updated to recent stable version with security fixes
+    'botocore >= 1.29.0, < 2.0.0',  # Updated to recent stable version
+    'pyyaml >= 6.0, < 7.0',  # Pinned to secure version (>= 6.0 fixes CVE-2020-14343)
   ],
   entry_points={
     'console_scripts': [

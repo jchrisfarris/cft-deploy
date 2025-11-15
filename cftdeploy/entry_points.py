@@ -479,7 +479,15 @@ def process_override_params(args):
         return(None)
 
     for p in args.overrideparameters:
-        k, v = p.split("=")
+        if "=" not in p:
+            logger.error(f"Invalid parameter format: '{p}'. Expected format: key=value")
+            logger.error("Skipping invalid parameter and continuing...")
+            continue
+        # Use maxsplit=1 to handle values that contain '=' characters
+        k, v = p.split("=", 1)
+        if not k.strip():
+            logger.error(f"Invalid parameter: empty key in '{p}'. Skipping...")
+            continue
         params[k] = v
 
     return(params)
