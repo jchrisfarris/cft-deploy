@@ -40,9 +40,13 @@ class CFTemplate(object):
     @classmethod
     def read(cls, filename, region, session=None):
         """Read the template from filename and then initialize."""
-        f = open(filename, "r")
-        template_body = f.read()
-        return(CFTemplate(template_body, region, filename=filename, session=session))
+        try:
+            f = open(filename, "r")
+            template_body = f.read()
+            return(CFTemplate(template_body, region, filename=filename, session=session))
+        except FileNotFoundError as e:
+            print(f"Failed to open Template file: {e}")
+            exit(1)
 
     @classmethod
     def download(cls, bucket, object_key, region, session=None):
@@ -76,6 +80,9 @@ class CFTemplate(object):
                 else:
                     logger.error(f"Invalid Template: {e}")
                     return(None)
+            if e.response['Error']['Code'] == 'ExpiredToken':
+                logger.error(f"Credentials Expired: {e}")
+                return(None)
             else:
                 raise
 
@@ -109,10 +116,13 @@ class CFTemplate(object):
             'my_stack_name': "CHANGEME",
             'term_protection': "false",  # Use yaml formatting which is lowercase
             'template_line': "# WARNING - No Template Source Defined.",
-            'template_description': params['Description'],
             'timestamp': datetime.datetime.now(),
             'region': "CHANGEME"
         }
+        if 'Description' in params:
+            manifest_values['template_description'] = params['Description']
+        else:
+            manifest_values['template_description'] = "No Template Description Provided"
 
         # Set the Template Line value
         if self.filename is not None:
