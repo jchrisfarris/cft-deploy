@@ -41,11 +41,14 @@ class CFTemplate(object):
     def read(cls, filename, region, session=None):
         """Read the template from filename and then initialize."""
         try:
-            f = open(filename, "r")
-            template_body = f.read()
+            with open(filename, "r") as f:
+                template_body = f.read()
             return(CFTemplate(template_body, region, filename=filename, session=session))
         except FileNotFoundError as e:
-            print(f"Failed to open Template file: {e}")
+            logger.error(f"Failed to open Template file: {e}")
+            exit(1)
+        except IOError as e:
+            logger.error(f"Failed to read Template file {filename}: {e}")
             exit(1)
 
     @classmethod
@@ -147,12 +150,18 @@ class CFTemplate(object):
         if overwrite is not True and os.path.exists(manifest_file_name):
             logger.critical(f"Refusing to overwrite {manifest_file_name}. File exists")
             exit(1)
-        else:
+
+        try:
             # Now do the substitution and write the file
-            f = open(manifest_file_name, "w")
-            f.write(file_body)
-            f.close()
+            with open(manifest_file_name, "w") as f:
+                f.write(file_body)
             return(CFManifest(manifest_file_name, self.session))
+        except IOError as e:
+            logger.critical(f"Failed to write manifest file {manifest_file_name}: {e}")
+            exit(1)
+        except Exception as e:
+            logger.critical(f"Failed to create manifest {manifest_file_name}: {e}")
+            exit(1)
 
     def diff(self, other_template):
         """prints out the differences between this template and another one."""

@@ -80,8 +80,11 @@ def cft_deploy():
             my_manifest = CFManifest(args.manifest, region=args.override_region, session=session)
         else:
             my_manifest = CFManifest(args.manifest,  session=session)
-    except Exception:
-        raise
+    except (yaml.YAMLError, FileNotFoundError, ValueError) as e:
+        logger.critical(f"Failed to load manifest {args.manifest}: {e}")
+        exit(1)
+    except Exception as e:
+        logger.critical(f"Unexpected error loading manifest {args.manifest}: {e}")
         exit(1)
 
     # TODO: Process override stuff
@@ -117,7 +120,11 @@ def cft_deploy():
                 print("Failed to Create stack. Aborting....")
                 exit(1)
             my_stack.get()
+        except ClientError as e:
+            logger.critical(f"AWS API error creating stack: {e}")
+            exit(1)
         except Exception as e:
+            logger.critical(f"Unexpected error creating stack: {e}")
             exit(1)
 
     # Now display the events

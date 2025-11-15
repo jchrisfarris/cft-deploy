@@ -54,9 +54,19 @@ class CFManifest(object):
             logger.critical(f"Invalid manifest file {manifest_filename}: {e}")
             raise
 
-        self.stack_name = self.document['StackName']
+        # Validate required fields exist
+        try:
+            self.stack_name = self.document['StackName']
+        except KeyError:
+            logger.critical(f"Manifest file {manifest_filename} is missing required field 'StackName'")
+            raise ValueError("Manifest missing required field: StackName")
+
         if region is None:
-            self.region = self.document['Region']
+            try:
+                self.region = self.document['Region']
+            except KeyError:
+                logger.critical(f"Manifest file {manifest_filename} is missing required field 'Region' and no region override provided")
+                raise ValueError("Manifest missing required field: Region")
         else:
             self.region = region
             self.document['Region'] = region
