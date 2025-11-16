@@ -27,14 +27,21 @@ class CFManifest(object):
 
         # Read the file with security constraints
         try:
+            # Normalize path to prevent directory traversal attacks
+            normalized_path = os.path.abspath(manifest_filename)
+
+            # Basic security check: warn if path contains suspicious patterns
+            if '..' in os.path.normpath(manifest_filename):
+                logger.warning(f"Path contains '..' which may indicate directory traversal: {manifest_filename}")
+
             # Check file size to prevent DoS attacks (limit to 10MB)
-            file_size = os.path.getsize(manifest_filename)
+            file_size = os.path.getsize(normalized_path)
             max_size = 10 * 1024 * 1024  # 10MB
             if file_size > max_size:
                 logger.critical(f"Manifest file {manifest_filename} is too large ({file_size} bytes). Maximum allowed is {max_size} bytes.")
                 raise ValueError(f"Manifest file exceeds maximum size of {max_size} bytes")
 
-            with open(manifest_filename, 'r') as stream:
+            with open(normalized_path, 'r') as stream:
                 # Read with size limit for additional safety
                 content = stream.read(max_size)
                 self.document = yaml.safe_load(content)
