@@ -115,11 +115,13 @@ class CFTemplate(object):
         parameter_string = ""
         for p in params['Parameters']:
             if 'Description' in p:
-                parameter_string += f"\n\n  # {p['Description']}"
+                sanitized_desc = str(p['Description']).replace('\n', ' ').replace('\r', ' ')
+                parameter_string += f"\n\n  # {sanitized_desc}"
             else:
                 parameter_string += f"\n\n  # No Description"
             if 'DefaultValue' in p:
-                parameter_string += f"\n  {p['ParameterKey']}: {p['DefaultValue']}"
+                sanitized_default = str(p['DefaultValue']).replace('\n', ' ').replace('\r', ' ')
+                parameter_string += f"\n  {p['ParameterKey']}: {sanitized_default}"
             else:
                 parameter_string += f"\n  {p['ParameterKey']}: "
 
@@ -133,7 +135,7 @@ class CFTemplate(object):
             'region': "CHANGEME"
         }
         if 'Description' in params:
-            manifest_values['template_description'] = params['Description']
+            manifest_values['template_description'] = str(params['Description']).replace('\n', ' ').replace('\r', ' ')
         else:
             manifest_values['template_description'] = "No Template Description Provided"
 
