@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound, TokenRetrievalError
 import os
 import sys
 import json
@@ -29,12 +29,15 @@ def cft_get_events():
     if not args.stack_name:
         parser.error("the following arguments are required: --stack-name")
 
+    session = make_session(args)
     try:
-        my_stack = CFStack(args.stack_name, args.region)
+        my_stack = CFStack(args.stack_name, args.region, session=session)
         my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
     # Now display the events
     events = my_stack.get_stack_events()
@@ -64,7 +67,6 @@ def cft_deploy():
     parser.add_argument("--interactive", help="Create a change set and display it before executing the change", action='store_true')
     parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     # parser.add_argument("--region", help="Make API Calls in this region")
-    parser.add_argument("--profile", help="Use the BOTO3 Profile")
 
     args = do_args(parser)
 
@@ -77,10 +79,7 @@ def cft_deploy():
     if args.interactive or args.update_stack_policy:
         raise NotImplementedError
 
-    if not args.profile:
-        session =  boto3.session.Session()
-    else:
-        session = boto3.session.Session(profile_name=args.profile)
+    session = make_session(args)
 
     try:
         if args.override_region:
@@ -130,9 +129,13 @@ def cft_deploy():
         except ClientError as e:
             logger.critical(f"AWS API error creating stack: {e}")
             exit(1)
+        except (NoCredentialsError, TokenRetrievalError) as e:
+            _credentials_error(e)
         except Exception as e:
             logger.critical(f"Unexpected error creating stack: {e}")
             exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
     # Now display the events
     events = my_stack.get_stack_events()
@@ -204,15 +207,11 @@ def cft_get_output():
     parser = argparse.ArgumentParser(description="Get Resource IDs by Logical Id")
     parser.add_argument("--stack-name", help="Stackname to search", required=True)
     parser.add_argument("--output-key", help="Stack Output to return", required=True)
-    parser.add_argument("--profile", help="Use the BOTO3 Profile")
 
     args = do_args(parser)
     logger.debug(f"Looking for {args.output_key} in {args.stack_name}")
 
-    if not args.profile:
-        session =  boto3.session.Session()
-    else:
-        session = boto3.session.Session(profile_name=args.profile)
+    session = make_session(args)
 
     try:
         my_stack = CFStack(args.stack_name, args.region, session=session)
@@ -229,6 +228,8 @@ def cft_get_output():
     except CFStackDoesNotExistError as e:
         logger.critical(f"Failed to find stack {args.stack_name} in region {args.region}. Aborting....")
         exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
     exit(0)
 
@@ -241,16 +242,17 @@ def cft_validate():
     group.add_argument("--s3-url", help="CFT S3 URL to validate")
     args = do_args(parser)
 
-    if args.template:
-        logger.debug(f"Validating {args.template}")
-        my_template = CFTemplate.read(args.template, args.region)
-    elif args.s3_url:
-        logger.debug(f"Validating {args.s3_url}")
-        (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
-        logger.debug(f"Fetching {object_key} from {bucket}")
-        my_template = CFTemplate.download(bucket, object_key, args.region)
-
+    session = make_session(args)
     try:
+        if args.template:
+            logger.debug(f"Validating {args.template}")
+            my_template = CFTemplate.read(args.template, args.region, session=session)
+        elif args.s3_url:
+            logger.debug(f"Validating {args.s3_url}")
+            (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
+            logger.debug(f"Fetching {object_key} from {bucket}")
+            my_template = CFTemplate.download(bucket, object_key, args.region, session=session)
+
         status = my_template.validate()
         if status is None:
             print("Error Validating Template")
@@ -262,6 +264,8 @@ def cft_validate():
         parser.print_help()
         print(f"\n\nTemplate {args.template} exceeds the maximum length for local templates")
         print("Please upload the file to S3, then call cfg-validate with the --s3-url option")
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
 
 def cft_validate_manifest():
@@ -278,10 +282,11 @@ def cft_validate_manifest():
         parser.error("the following arguments are required: -m/--manifest")
     logger.debug(f"Validating {args.manifest}")
 
+    session = make_session(args)
     if args.override_region:
-        my_manifest = CFManifest(args.manifest, region=args.override_region)
+        my_manifest = CFManifest(args.manifest, region=args.override_region, session=session)
     else:
-        my_manifest = CFManifest(args.manifest)
+        my_manifest = CFManifest(args.manifest, session=session)
 
     override = process_override_params(args)
 
@@ -313,6 +318,8 @@ def cft_validate_manifest():
         exit(1)
     except StackLookupException as e:
         exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
 def cft_upload():
     """Entrypoint to upload a Cloudformation Template File to s3."""
@@ -329,7 +336,8 @@ def cft_upload():
     if not args.object_key:
         parser.error("the following arguments are required: -o/--object-key")
     logger.info(f"Uploading {args.template} to s3://{args.bucket}/{args.object_key}")
-    my_template = CFTemplate.read(args.template, args.region)
+    session = make_session(args)
+    my_template = CFTemplate.read(args.template, args.region, session=session)
     try:
         status = my_template.upload(args.bucket, args.object_key)
         print(f"Template {args.template} uploaded to {status}")
@@ -337,6 +345,8 @@ def cft_upload():
     except ClientError as e:
         print(f"Failed to upload Template {args.template}: {e}")
         exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
 
 def cft_generate_manifest():
@@ -356,29 +366,30 @@ def cft_generate_manifest():
         parser.error("one of the arguments -t/--template --s3-url is required")
     logger.info(f"Generating {args.manifest} from {args.template}")
 
-    if args.template:
-        logger.info(f"Generating Manifest file {args.manifest} from {args.template}")
-        source = args.template
-        my_template = CFTemplate.read(args.template, args.region)
-    elif args.s3_url:
-        logger.info(f"Generating Manifest file {args.manifest} from {args.s3_url}")
-        source = args.s3_url
-        (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
-        if bucket == None or object_key == None:
-            logger.critical(f"Invalid S3 URL. Cannot extract bucket or object. Aborting")
-            exit(1)
-        logger.debug(f"Fetching {object_key} from {bucket}")
-        my_template = CFTemplate.download(bucket, object_key, args.region)
-
-    subsitutions = {}
-    if args.stack_name:
-        subsitutions['stack_name'] = args.stack_name
-    if args.termination_protection:
-        subsitutions['termination_protection'] = args.termination_protection
-    if args.region:
-        subsitutions['region'] = args.region
-
+    session = make_session(args)
     try:
+        if args.template:
+            logger.info(f"Generating Manifest file {args.manifest} from {args.template}")
+            source = args.template
+            my_template = CFTemplate.read(args.template, args.region, session=session)
+        elif args.s3_url:
+            logger.info(f"Generating Manifest file {args.manifest} from {args.s3_url}")
+            source = args.s3_url
+            (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
+            if bucket == None or object_key == None:
+                logger.critical(f"Invalid S3 URL. Cannot extract bucket or object. Aborting")
+                exit(1)
+            logger.debug(f"Fetching {object_key} from {bucket}")
+            my_template = CFTemplate.download(bucket, object_key, args.region, session=session)
+
+        subsitutions = {}
+        if args.stack_name:
+            subsitutions['stack_name'] = args.stack_name
+        if args.termination_protection:
+            subsitutions['termination_protection'] = args.termination_protection
+        if args.region:
+            subsitutions['region'] = args.region
+
         foo = my_template.generate_manifest(args.manifest, substitutions=subsitutions)
         print(f"Generated Manifest file {args.manifest} from {source}")
         exit(0)
@@ -388,6 +399,8 @@ def cft_generate_manifest():
         print("Please upload the file to S3, then call cfg-generate-manifest with the --s3-url option")
     except yaml.scanner.ScannerError as e:
         print("CFT Default Params have an invalid yaml value. Double check quoting before deploying")
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
 
 def cft_delete():
@@ -400,12 +413,15 @@ def cft_delete():
     if not args.stack_name:
         parser.error("the following arguments are required: --stack-name")
     print(f"Deleting {args.stack_name}")
+    session = make_session(args)
     try:
-        my_stack = CFStack(args.stack_name, args.region)
+        my_stack = CFStack(args.stack_name, args.region, session=session)
         my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
     my_stack.delete()
     if args.no_status:
@@ -437,18 +453,21 @@ def cft_diff():
     parser.add_argument("--stack-name", help="Stackname to search", required=True)
     args = do_args(parser)
 
-    if args.template:
-        template_1 = CFTemplate.read(args.template, args.region)
-    elif args.s3_url:
-        (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
-        template_1 = CFTemplate.download(bucket, object_key, args.region)
-
+    session = make_session(args)
     try:
-        my_stack = CFStack(args.stack_name, args.region)
+        if args.template:
+            template_1 = CFTemplate.read(args.template, args.region, session=session)
+        elif args.s3_url:
+            (bucket, object_key) = CFTemplate.parse_s3_url(args.s3_url)
+            template_1 = CFTemplate.download(bucket, object_key, args.region, session=session)
+
+        my_stack = CFStack(args.stack_name, args.region, session=session)
         my_stack.get()
     except CFStackDoesNotExistError as e:
         print("Failed to Find stack. Aborting....")
         exit(1)
+    except (NoCredentialsError, TokenRetrievalError) as e:
+        _credentials_error(e)
 
     print(f"comparing stack: {my_stack.stack_name} and template {template_1}")
     template_2 = my_stack.get_template()
@@ -475,6 +494,7 @@ def do_args(parser):
     parser.add_argument("--env", help="Return data in bash env format", action='store_true')
     parser.add_argument("--version", help="print cft-deploy version", action='store_true')
     parser.add_argument("--region", help="AWS Region", default=os.getenv('AWS_DEFAULT_REGION', default='us-east-1'))
+    parser.add_argument("--profile", help="Use the named AWS profile instead of the default credential chain")
     args = parser.parse_args()
 
     if args.version:
@@ -503,6 +523,24 @@ def do_args(parser):
     logging.getLogger('boto3').setLevel(logging.WARNING)
 
     return(args)
+
+
+def make_session(args):
+    """Create a boto3 session, using a named profile when --profile is supplied."""
+    try:
+        if args.profile:
+            return boto3.session.Session(profile_name=args.profile)
+        return boto3.session.Session()
+    except ProfileNotFound as e:
+        logger.critical(f"AWS profile '{args.profile}' not found: {e}")
+        logger.critical("Check your ~/.aws/config or run 'aws configure'.")
+        exit(1)
+
+
+def _credentials_error(e):
+    logger.critical(f"AWS credentials error: {e}")
+    logger.critical("Re-authenticate with AWS (e.g., 'aws sso login') and try again.")
+    exit(1)
 
 
 def process_override_params(args):
