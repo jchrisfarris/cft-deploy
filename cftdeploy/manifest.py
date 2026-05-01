@@ -25,20 +25,55 @@ class CFManifest(object):
         else:
             self.session = session
 
-        # Read the file
+        # Read the file with security constraints
         try:
-            with open(manifest_filename, 'r') as stream:
-                self.document = yaml.safe_load(stream)
+            # Normalize path to prevent directory traversal attacks
+            normalized_path = os.path.abspath(manifest_filename)
+
+            # Basic security check: warn if path contains suspicious patterns
+            if '..' in os.path.normpath(manifest_filename):
+                logger.warning(f"Path contains '..' which may indicate directory traversal: {manifest_filename}")
+
+            # Check file size to prevent DoS attacks (limit to 10MB)
+            file_size = os.path.getsize(normalized_path)
+            max_size = 10 * 1024 * 1024  # 10MB
+            if file_size > max_size:
+                logger.critical(f"Manifest file {manifest_filename} is too large ({file_size} bytes). Maximum allowed is {max_size} bytes.")
+                raise ValueError(f"Manifest file exceeds maximum size of {max_size} bytes")
+
+            with open(normalized_path, 'r') as stream:
+                # Read with size limit for additional safety
+                content = stream.read(max_size)
+                self.document = yaml.safe_load(content)
+
+            # Validate that the parsed document is a dictionary
+            if not isinstance(self.document, dict):
+                logger.critical(f"Manifest file {manifest_filename} must contain a YAML dictionary/object at the root level")
+                raise ValueError("Invalid manifest structure: root must be a dictionary")
+
         except yaml.YAMLError as e:
             logger.critical(f"Unable to parse manifest file {manifest_filename}: {e}. Aborting....")
             raise
         except FileNotFoundError as e:
-            logger.critical(f"Unable to fine manifest file {manifest_filename}: {e}. Aborting...")
+            logger.critical(f"Unable to find manifest file {manifest_filename}: {e}. Aborting...")
+            exit(1)
+        except ValueError as e:
+            logger.critical(f"Invalid manifest file {manifest_filename}: {e}")
             raise
 
-        self.stack_name = self.document['StackName']
+        # Validate required fields exist
+        try:
+            self.stack_name = self.document['StackName']
+        except KeyError:
+            logger.critical(f"Manifest file {manifest_filename} is missing required field 'StackName'")
+            raise ValueError("Manifest missing required field: StackName")
+
         if region is None:
-            self.region = self.document['Region']
+            try:
+                self.region = self.document['Region']
+            except KeyError:
+                logger.critical(f"Manifest file {manifest_filename} is missing required field 'Region' and no region override provided")
+                raise ValueError("Manifest missing required field: Region")
         else:
             self.region = region
             self.document['Region'] = region

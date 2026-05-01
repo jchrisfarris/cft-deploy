@@ -159,6 +159,9 @@ class CFStack(object):
         """ Return a dict of each parameter to this stack."""
         self.get()
         output = {}
+        # Stack may not have any parameters
+        if not hasattr(self, 'Parameters') or self.Parameters is None:
+            return output
         for p in self.Parameters:
             if 'ResolvedValue' in p:
                 output[p['ParameterKey']] = p['ResolvedValue']
@@ -172,6 +175,9 @@ class CFStack(object):
         """ Return a dict of each output of this stack."""
         self.get()
         output = {}
+        # Stack may not have any outputs
+        if not hasattr(self, 'Outputs') or self.Outputs is None:
+            return output
         for o in self.Outputs:
             if 'OutputValue' in o:
                 output[o['OutputKey']] = o['OutputValue']

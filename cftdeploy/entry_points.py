@@ -23,8 +23,11 @@ logger = logging.getLogger('cft-deploy')
 def cft_get_events():
     """Entrypoint to list events for a stack."""
     parser = argparse.ArgumentParser(description="List Stack Events")
-    parser.add_argument("--stack-name", help="Stackname to search", required=True)
+    parser.add_argument("--stack-name", help="Stackname to search")
     args = do_args(parser)
+
+    if not args.stack_name:
+        parser.error("the following arguments are required: --stack-name")
 
     try:
         my_stack = CFStack(args.stack_name, args.region)
@@ -53,7 +56,7 @@ def cft_get_events():
 def cft_deploy():
     """Entrypoint to deploy the Cloudformation stack as specified by the manifest."""
     parser = argparse.ArgumentParser(description="Deploy a cft-tool manifest")
-    parser.add_argument("-m", "--manifest", help="Manifest file to deploy", required=True)
+    parser.add_argument("-m", "--manifest", help="Manifest file to deploy")
     parser.add_argument("--template-url", help="Override the manifest with this Template URL")
     parser.add_argument("--override-region", help="Override the region defined in the manifest with this value")
     parser.add_argument("--force", help="Force the stack update even if the stack is in a non-normal state", action='store_true')
@@ -64,6 +67,10 @@ def cft_deploy():
     parser.add_argument("--profile", help="Use the BOTO3 Profile")
 
     args = do_args(parser)
+
+    # Check for required manifest after --version is handled
+    if not args.manifest:
+        parser.error("the following arguments are required: -m/--manifest")
     logger.info(f"Deploying {args.manifest}")
 
     # Flag the non-implemented stuff
@@ -80,8 +87,11 @@ def cft_deploy():
             my_manifest = CFManifest(args.manifest, region=args.override_region, session=session)
         else:
             my_manifest = CFManifest(args.manifest,  session=session)
-    except Exception:
-        raise
+    except (yaml.YAMLError, FileNotFoundError, ValueError) as e:
+        logger.critical(f"Failed to load manifest {args.manifest}: {e}")
+        exit(1)
+    except Exception as e:
+        logger.critical(f"Unexpected error loading manifest {args.manifest}: {e}")
         exit(1)
 
     # TODO: Process override stuff
@@ -117,7 +127,11 @@ def cft_deploy():
                 print("Failed to Create stack. Aborting....")
                 exit(1)
             my_stack.get()
+        except ClientError as e:
+            logger.critical(f"AWS API error creating stack: {e}")
+            exit(1)
         except Exception as e:
+            logger.critical(f"Unexpected error creating stack: {e}")
             exit(1)
 
     # Now display the events
@@ -256,9 +270,12 @@ def cft_validate_manifest():
     parser.add_argument("--price", help="Return a link for a simple calculator pricing worksheet", action='store_true')
     parser.add_argument("--template-url", help="Override the manifest with this Template URL")
     parser.add_argument("--override-region", help="Override the region defined in the manifest with this value")
-    parser.add_argument("-m", "--manifest", help="Manifest file to deploy", required=True)
+    parser.add_argument("-m", "--manifest", help="Manifest file to deploy")
     parser.add_argument("overrideparameters", help="Optional parameter override of the manifest", nargs='*')
     args = do_args(parser)
+
+    if not args.manifest:
+        parser.error("the following arguments are required: -m/--manifest")
     logger.debug(f"Validating {args.manifest}")
 
     if args.override_region:
@@ -300,10 +317,17 @@ def cft_validate_manifest():
 def cft_upload():
     """Entrypoint to upload a Cloudformation Template File to s3."""
     parser = argparse.ArgumentParser(description="Upload a Cloudformation Template File")
-    parser.add_argument("-t", "--template", help="CFT Filename to upload", required=True)
-    parser.add_argument("-b", "--bucket", help="Bucket to upload to", required=True)
-    parser.add_argument("-o", "--object-key", help="object key to upload as", required=True)
+    parser.add_argument("-t", "--template", help="CFT Filename to upload")
+    parser.add_argument("-b", "--bucket", help="Bucket to upload to")
+    parser.add_argument("-o", "--object-key", help="object key to upload as")
     args = do_args(parser)
+
+    if not args.template:
+        parser.error("the following arguments are required: -t/--template")
+    if not args.bucket:
+        parser.error("the following arguments are required: -b/--bucket")
+    if not args.object_key:
+        parser.error("the following arguments are required: -o/--object-key")
     logger.info(f"Uploading {args.template} to s3://{args.bucket}/{args.object_key}")
     my_template = CFTemplate.read(args.template, args.region)
     try:
@@ -318,13 +342,18 @@ def cft_upload():
 def cft_generate_manifest():
     """Entrypoint to generate manifest file based on the CloudFormation Template."""
     parser = argparse.ArgumentParser(description="Generate Manifest file")
-    parser.add_argument("-m", "--manifest", help="Manifest file to output", required=True)
+    parser.add_argument("-m", "--manifest", help="Manifest file to output")
     parser.add_argument("--stack-name", help="Set the stackname to this in the Manifest File")
     parser.add_argument("--termination-protection", help="Set termination protection to true in the Manifest File", action='store_true')
-    group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group()
     group.add_argument("-t", "--template", help="CFT Filename to validate")
     group.add_argument("--s3-url", help="CFT S3 URL to validate")
     args = do_args(parser)
+
+    if not args.manifest:
+        parser.error("the following arguments are required: -m/--manifest")
+    if not args.template and not args.s3_url:
+        parser.error("one of the arguments -t/--template --s3-url is required")
     logger.info(f"Generating {args.manifest} from {args.template}")
 
     if args.template:
@@ -364,9 +393,12 @@ def cft_generate_manifest():
 def cft_delete():
     """Delete --stack-name."""
     parser = argparse.ArgumentParser(description="Delete a stack")
-    parser.add_argument("--stack-name", help="Stackname to Delete", required=True)
+    parser.add_argument("--stack-name", help="Stackname to Delete")
     parser.add_argument("--no-status", help="Don't display the progress of the delete", action='store_true')
     args = do_args(parser)
+
+    if not args.stack_name:
+        parser.error("the following arguments are required: --stack-name")
     print(f"Deleting {args.stack_name}")
     try:
         my_stack = CFStack(args.stack_name, args.region)
@@ -479,7 +511,15 @@ def process_override_params(args):
         return(None)
 
     for p in args.overrideparameters:
-        k, v = p.split("=")
+        if "=" not in p:
+            logger.error(f"Invalid parameter format: '{p}'. Expected format: key=value")
+            logger.error("Skipping invalid parameter and continuing...")
+            continue
+        # Use maxsplit=1 to handle values that contain '=' characters
+        k, v = p.split("=", 1)
+        if not k.strip():
+            logger.error(f"Invalid parameter: empty key in '{p}'. Skipping...")
+            continue
         params[k] = v
 
     return(params)

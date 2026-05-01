@@ -7,6 +7,7 @@ import json
 import yaml
 import datetime
 import re
+from urllib.parse import quote
 
 import logging
 logger = logging.getLogger('cft-deploy.template')
@@ -40,9 +41,23 @@ class CFTemplate(object):
     @classmethod
     def read(cls, filename, region, session=None):
         """Read the template from filename and then initialize."""
-        f = open(filename, "r")
-        template_body = f.read()
-        return(CFTemplate(template_body, region, filename=filename, session=session))
+        try:
+            # Normalize path to prevent directory traversal attacks
+            normalized_path = os.path.abspath(filename)
+
+            # Basic security check: warn if path contains suspicious patterns
+            if '..' in os.path.normpath(filename):
+                logger.warning(f"Path contains '..' which may indicate directory traversal: {filename}")
+
+            with open(normalized_path, "r") as f:
+                template_body = f.read()
+            return(CFTemplate(template_body, region, filename=filename, session=session))
+        except FileNotFoundError as e:
+            logger.error(f"Failed to open Template file: {e}")
+            exit(1)
+        except IOError as e:
+            logger.error(f"Failed to read Template file {filename}: {e}")
+            exit(1)
 
     @classmethod
     def download(cls, bucket, object_key, region, session=None):
@@ -66,7 +81,9 @@ class CFTemplate(object):
                 response = self.cf_client.validate_template(TemplateBody=self.template_body)
             else:
                 (bucket, object_key) = self.parse_s3_url(self.s3url)
-                template_url = f"https://s3.amazonaws.com/{bucket}/{object_key}"
+                # URL-encode the object_key to prevent URL injection
+                encoded_key = quote(object_key, safe='/')
+                template_url = f"https://s3.amazonaws.com/{bucket}/{encoded_key}"
                 response = self.cf_client.validate_template(TemplateURL=template_url)
             return(response)
         except ClientError as e:
@@ -76,6 +93,9 @@ class CFTemplate(object):
                 else:
                     logger.error(f"Invalid Template: {e}")
                     return(None)
+            if e.response['Error']['Code'] == 'ExpiredToken':
+                logger.error(f"Credentials Expired: {e}")
+                return(None)
             else:
                 raise
 
@@ -109,17 +129,22 @@ class CFTemplate(object):
             'my_stack_name': "CHANGEME",
             'term_protection': "false",  # Use yaml formatting which is lowercase
             'template_line': "# WARNING - No Template Source Defined.",
-            'template_description': params['Description'],
             'timestamp': datetime.datetime.now(),
             'region': "CHANGEME"
         }
+        if 'Description' in params:
+            manifest_values['template_description'] = params['Description']
+        else:
+            manifest_values['template_description'] = "No Template Description Provided"
 
         # Set the Template Line value
         if self.filename is not None:
             manifest_values['template_line'] = f"LocalTemplate: {self.filename}"
         elif self.s3url is not None:
             (bucket, object_key) = self.parse_s3_url(self.s3url)
-            template_url = f"https://s3.amazonaws.com/{bucket}/{object_key}"
+            # URL-encode the object_key to prevent URL injection
+            encoded_key = quote(object_key, safe='/')
+            template_url = f"https://s3.amazonaws.com/{bucket}/{encoded_key}"
             manifest_values['template_line'] = f"S3Template: {template_url}"
 
         # If we pass in any other values we want to use, override the defaults here
@@ -134,15 +159,28 @@ class CFTemplate(object):
         # logger.debug(f"Using Manifest Values: {manifest_values}")
         file_body = MANIFEST_SKELETON.format(**manifest_values)
 
-        if overwrite is not True and os.path.exists(manifest_file_name):
-            logger.critical(f"Refusing to overwrite {manifest_file_name}. File exists")
+        # Normalize path to prevent directory traversal attacks
+        normalized_path = os.path.abspath(manifest_file_name)
+
+        # Basic security check: warn if path contains suspicious patterns
+        if '..' in os.path.normpath(manifest_file_name):
+            logger.warning(f"Path contains '..' which may indicate directory traversal: {manifest_file_name}")
+
+        if overwrite is not True and os.path.exists(normalized_path):
+            logger.critical(f"Refusing to overwrite {normalized_path}. File exists")
             exit(1)
-        else:
+
+        try:
             # Now do the substitution and write the file
-            f = open(manifest_file_name, "w")
-            f.write(file_body)
-            f.close()
-            return(CFManifest(manifest_file_name, self.session))
+            with open(normalized_path, "w") as f:
+                f.write(file_body)
+            return(CFManifest(normalized_path, self.session))
+        except IOError as e:
+            logger.critical(f"Failed to write manifest file {normalized_path}: {e}")
+            exit(1)
+        except Exception as e:
+            logger.critical(f"Failed to create manifest {normalized_path}: {e}")
+            exit(1)
 
     def diff(self, other_template):
         """prints out the differences between this template and another one."""
@@ -169,7 +207,9 @@ class CFTemplate(object):
         '''Parse an s3url (s3://bucket/object_key) and return the bucket and object_key'''
         bucket = None
         object_key = None
-        r = re.match(r"s3://(.*?)/(.*?)$", s3url)
+        # Use more specific regex pattern to prevent ReDoS
+        # Match s3:// followed by bucket name (non-slash chars) then / then object key (rest)
+        r = re.match(r"s3://([^/]+)/(.+)$", s3url)
         if r:
             bucket = r.group(1)
             object_key = r.group(2)
